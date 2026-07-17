@@ -6,6 +6,7 @@
 #include "elf.h"
 #include "serial.h"
 #include "kc/cpu.h"
+#include "io_channel.h"   /* back-end I/O croisé servi par Node-L (Phase 5) */
 
 extern void nodel_gdt_init(u64 kernel_stack_top);
 extern void nodel_idt_init(void);
@@ -107,5 +108,11 @@ void node_l_main(void) {
     /* Signale au Coordinator que tout le bringup Node-L est imprimé : le BSP peut
      * alors observer le heartbeat et terminer sans tronquer notre sortie. */
     __atomic_store_n(&g_nodel_done, 1, __ATOMIC_RELEASE);
-    for (;;) { g_nodel_heartbeat++; cpu_relax(); }
+
+    /* Idle : bat le heartbeat ET sert le back-end I/O croisé pour Node-W (Phase 5). */
+    for (;;) {
+        g_nodel_heartbeat++;
+        io_backend_poll();
+        cpu_relax();
+    }
 }

@@ -16,8 +16,9 @@ OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' brand
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
             -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm -ICOORDINATOR/smp \
-            -IIPC/proto -IIPC/ring -IIPC/doorbell \
-            -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf
+            -IIPC/proto -IIPC/ring -IIPC/doorbell -IIPC/channels \
+            -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf \
+            -INODE-W/kernel -INODE-W/executive -ILOADERS/pe
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -42,6 +43,7 @@ C_SRC := \
     COORDINATOR/smp/tramp_blob.c \
     IPC/ring/ring.c \
     IPC/doorbell/doorbell.c \
+    IPC/channels/io_channel.c \
     NODE-L/mm/nodel_mm.c \
     NODE-L/sched/sched.c \
     NODE-L/syscall/syscall_dispatch.c \
@@ -49,10 +51,18 @@ C_SRC := \
     NODE-L/kernel/nodel_idt.c \
     NODE-L/kernel/nodel.c \
     NODE-L/userland/user_blob.c \
+    NODE-W/kernel/nodew_mm.c \
+    NODE-W/kernel/nodew_gdt.c \
+    NODE-W/kernel/nodew_idt.c \
+    NODE-W/kernel/nodew.c \
+    NODE-W/executive/nt_dispatch.c \
+    NODE-W/subsystems/pe_blob.c \
     LOADERS/elf/elf.c \
+    LOADERS/pe/pe.c \
     COORDINATOR/core/main.c
 
-ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm NODE-L/kernel/entry.asm
+ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm \
+           LIBS/librt/arch.asm NODE-L/kernel/entry.asm NODE-W/kernel/nt_entry.asm
 
 # Trampoline AP : blob binaire à plat (org 0x8000), incorporé par tramp_blob.c.
 TRAMP_BIN := $(BUILD)/trampoline.bin
@@ -99,6 +109,19 @@ $(USER_ELF): NODE-L/userland/init.c NODE-L/userland/user.ld
 # user_blob.c fait un .incbin de build/nodel_user.elf -> dépendance explicite
 $(BUILD)/NODE-L/userland/user_blob.o: $(USER_ELF)
 
+# --- exécutable PE Node-W : PE32+ fabriqué à la main (nasm -f bin) ---
+# NODEW_CRASH=1 -> variante qui déréférence la RAM Node-L (test de confinement).
+PE_EXE := $(BUILD)/hello_pe.exe
+PE_DEF := $(if $(NODEW_CRASH),-dNODEW_CRASH,)
+
+$(PE_EXE): NODE-W/subsystems/hello_pe.asm
+	@mkdir -p $(dir $@)
+	$(ASM) -f bin $(PE_DEF) $< -o $@
+	@echo "==> built PE $@ $(if $(NODEW_CRASH),[CRASH mode],)"
+
+# pe_blob.c fait un .incbin de build/hello_pe.exe -> dépendance explicite
+$(BUILD)/NODE-W/subsystems/pe_blob.o: $(PE_EXE)
+
 $(KERNEL): $(OBJ) TOOLS/image/linker.ld
 	@mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
@@ -122,7 +145,7 @@ run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
 # Validation automatisée (CI archi + unitaire hôte + intégration QEMU Phase 4).
-test: ci test-unit test-phase4
+test: ci test-unit test-phase5
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
@@ -135,6 +158,9 @@ test-phase3: $(ISO)
 
 test-phase4: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase4.sh
+
+test-phase5: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase5.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:

@@ -13,7 +13,9 @@
 #include "kc/string.h"
 #include "ring.h"
 #include "doorbell.h"
+#include "io_channel.h"
 #include "nodel.h"
+#include "nodew.h"
 
 /* ---- symboles asm ---- */
 extern u64  isr_table[32];
@@ -74,7 +76,8 @@ static void idt_init(void) {
 }
 
 /* ---- table runtime des cœurs ---- */
-enum ap_role { ROLE_ISOLATION = 0, ROLE_PRODUCER, ROLE_CONSUMER, ROLE_NODEL_KERNEL };
+enum ap_role { ROLE_ISOLATION = 0, ROLE_PRODUCER, ROLE_CONSUMER,
+               ROLE_NODEL_KERNEL, ROLE_NODEW_KERNEL };
 
 struct cpu_rt {
     u32          apic_id;
@@ -251,6 +254,11 @@ void ap_main(void) {
         serial_printf("[smp] apic=%u -> Node-L sovereign kernel\n", id);
         node_l_main();                             /* ne revient pas (idle) */
         break;
+    case ROLE_NODEW_KERNEL:
+        __atomic_add_fetch(&g_ap_alive, 1, __ATOMIC_SEQ_CST);
+        serial_printf("[smp] apic=%u -> Node-W sovereign kernel\n", id);
+        node_w_main();                             /* ne revient pas (idle) */
+        break;
     default:                run_isolation(id, c);  break;
     }
 }
@@ -277,14 +285,16 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
     idt_init();
     lapic_enable();
     ipc_ring_init(&g_ipc);
+    io_channel_init();               /* canal I/O croisé Node-W <-> Node-L (Phase 5) */
 
     u64 cr3_L = mm_build_domain_cr3(DOM_NODE_L);
     u64 cr3_W = mm_build_domain_cr3(DOM_NODE_W);
     u32 my = cpu_apic_id();
 
-    /* Rôles : 1er cœur Node-L -> NODEL_KERNEL ; 2e cœur Node-L -> PRODUCER (IPC) ;
-     * 1er cœur Node-W -> CONSUMER (IPC, si un producteur existe). */
-    int nodel_idx = -1, prod_idx = -1, cons_idx = -1;
+    /* Rôles : 1er cœur Node-L -> NODEL_KERNEL, 2e -> PRODUCER (IPC) ;
+     *         1er cœur Node-W -> NODEW_KERNEL, 2e -> CONSUMER (IPC).
+     * La démo IPC (Phase 3) ne tourne que s'il y a un 2e cœur de chaque nœud. */
+    int nodel_idx = -1, prod_idx = -1, nodew_idx = -1, cons_idx = -1;
     for (u32 i = 0; i < t->cpu_count; i++) {
         enum domain d = mm_domain_of(t, i);
         if (t->cpus[i].apic_id == my || d == DOM_COORD || !t->cpus[i].enabled) continue;
@@ -292,7 +302,10 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
             if (nodel_idx < 0)      nodel_idx = (int)i;
             else if (prod_idx < 0)  prod_idx  = (int)i;
         }
-        if (d == DOM_NODE_W && cons_idx < 0) cons_idx = (int)i;
+        if (d == DOM_NODE_W) {
+            if (nodew_idx < 0)      nodew_idx = (int)i;
+            else if (cons_idx < 0)  cons_idx  = (int)i;
+        }
     }
     bool ipc_on = (prod_idx >= 0 && cons_idx >= 0);
 
@@ -308,6 +321,7 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         c->used      = true;
         c->role      = ROLE_ISOLATION;
         if ((int)i == nodel_idx)          c->role = ROLE_NODEL_KERNEL;
+        if ((int)i == nodew_idx)          c->role = ROLE_NODEW_KERNEL;
         if (ipc_on && (int)i == prod_idx) c->role = ROLE_PRODUCER;
         if (ipc_on && (int)i == cons_idx) c->role = ROLE_CONSUMER;
     }
@@ -317,6 +331,7 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         r.ipc_expected  = IPC_MSG_COUNT;
     }
     r.nodel_present = (nodel_idx >= 0);
+    r.nodew_present = (nodew_idx >= 0);
 
     /* Copier le trampoline. */
     u64 tramp_sz = (u64)(tramp_blob_end - tramp_blob_start);
@@ -348,7 +363,8 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
 
         const char *role = g_cpus[i].role == ROLE_PRODUCER     ? "PRODUCER"
                          : g_cpus[i].role == ROLE_CONSUMER     ? "CONSUMER"
-                         : g_cpus[i].role == ROLE_NODEL_KERNEL ? "NODE-L-KERNEL" : "isolation";
+                         : g_cpus[i].role == ROLE_NODEL_KERNEL ? "NODE-L-KERNEL"
+                         : g_cpus[i].role == ROLE_NODEW_KERNEL ? "NODE-W-KERNEL" : "isolation";
         serial_printf("[smp] waking apic=%u -> %s [%s] (cr3=0x%lx)\n",
                       apic, mm_domain_name(d), role, cr3);
 
@@ -378,13 +394,26 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
      * Borne en temps réel via le TSC (indépendant de la charge hôte) ; le vrai
      * garde-fou anti-hang reste le timeout externe (run_phaseN.sh). */
     if (r.nodel_present) {
-        u64 deadline = rdtsc() + 30000000000ull;     /* ~10-30 s selon la fréquence TSC */
+        u64 deadline = rdtsc() + 15000000000ull;     /* ~10-30 s selon la fréquence TSC */
         while (!g_nodel_done && rdtsc() < deadline) cpu_relax();
         u64 hb0 = g_nodel_heartbeat;                 /* puis vérifier le heartbeat vivant */
         u64 d2 = rdtsc() + 2000000000ull;
         while (g_nodel_heartbeat == hb0 && rdtsc() < d2) cpu_relax();
         r.nodel_heartbeat = g_nodel_heartbeat;
         r.nodel_alive     = g_nodel_done && (g_nodel_heartbeat > hb0);
+    }
+
+    /* Node-W : idem (attendre son bringup complet avant de terminer QEMU). */
+    if (r.nodew_present) {
+        u64 deadline = rdtsc() + 15000000000ull;
+        while (!g_nodew_done && rdtsc() < deadline) cpu_relax();
+        u64 hb0 = g_nodew_heartbeat;
+        u64 d2 = rdtsc() + 2000000000ull;
+        while (g_nodew_heartbeat == hb0 && rdtsc() < d2) cpu_relax();
+        r.nodew_heartbeat = g_nodew_heartbeat;
+        r.nodew_alive     = g_nodew_done && (g_nodew_heartbeat > hb0);
+        r.nodew_io_ok     = (g_nodew.io_ok != 0);
+        r.nodew_terminated = (g_nodew.terminated != 0);
     }
 
     r.alive        = g_ap_alive;

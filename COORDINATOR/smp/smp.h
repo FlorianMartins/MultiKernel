@@ -27,6 +27,13 @@ struct smp_result {
     bool nodel_present;    /* un cœur exécute le noyau Node-L */
     bool nodel_alive;      /* heartbeat de Node-L observé en progression par le BSP */
     u64  nodel_heartbeat;  /* dernière valeur lue */
+
+    /* Node-W souverain (Phase 5) */
+    bool nodew_present;    /* un cœur exécute le noyau Node-W */
+    bool nodew_alive;      /* heartbeat de Node-W observé en progression */
+    u64  nodew_heartbeat;
+    bool nodew_io_ok;      /* round-trip I/O croisé vérifié */
+    bool nodew_terminated; /* le PE a fait NtTerminateProcess */
 };
 
 struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base);

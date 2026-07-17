@@ -144,8 +144,25 @@ void kmain(u64 magic, u64 mbi_addr) {
         serial_printf("\n[node-l] ASSERT node-l alive: SKIP (no Node-L core)\n");
     }
 
-    bool all_ok = started_ok && iso_ok && ipc_ok && nodel_ok;
-    serial_printf("\n[coord] Phase 4 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
+    /* Phase 5 : Node-W souverain (PE + NT + I/O croisée) */
+    bool nodew_ok = true;
+    if (r.nodew_present) {
+        serial_printf("\n[node-w] heartbeat observed by BSP: %lu\n", r.nodew_heartbeat);
+        serial_printf("[node-w] ASSERT node-w alive (heartbeat): %s\n",
+                      r.nodew_alive ? "PASS" : "FAIL");
+        serial_printf("[node-w] ASSERT PE terminated cleanly: %s\n",
+                      r.nodew_terminated ? "PASS" : "FAIL");
+        serial_printf("[node-w] ASSERT cross-node I/O verified: %s\n",
+                      r.nodew_io_ok ? "PASS" : "FAIL");
+        serial_printf("[coord] ASSERT both nodes alive in parallel: %s\n",
+                      (r.nodel_alive && r.nodew_alive) ? "PASS" : "FAIL");
+        nodew_ok = r.nodew_alive && r.nodew_terminated && r.nodew_io_ok;
+    } else {
+        serial_printf("\n[node-w] ASSERT node-w alive: SKIP (no Node-W core)\n");
+    }
+
+    bool all_ok = started_ok && iso_ok && ipc_ok && nodel_ok && nodew_ok;
+    serial_printf("\n[coord] Phase 5 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
 
     /* Termine QEMU proprement pour les runs de test (no-op sur vrai matériel). */
     qemu_exit(all_ok ? 0x00 : 0x01);
