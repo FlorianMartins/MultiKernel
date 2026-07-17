@@ -32,3 +32,7 @@ const void *mb2_find_rsdp(const void *mbi) {
 const struct mb2_tag_mmap *mb2_find_mmap(const void *mbi) {
     return (const struct mb2_tag_mmap *)mb2_find(mbi, MB2_TAG_MMAP);
 }
+
+const struct mb2_tag_framebuffer *mb2_find_framebuffer(const void *mbi) {
+    return (const struct mb2_tag_framebuffer *)mb2_find(mbi, MB2_TAG_FRAMEBUFFER);
+}

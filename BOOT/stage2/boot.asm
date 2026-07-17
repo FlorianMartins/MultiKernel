@@ -23,6 +23,15 @@ mb_hdr_start:
     dd mb_hdr_end - mb_hdr_start
     dd -(MB2_MAGIC + MB2_ARCH + (mb_hdr_end - mb_hdr_start))
 align 8
+    ; tag framebuffer request { type=5, flags=0, size=20, width, height, depth }
+    ; demande à GRUB un mode graphique linéaire (console = série, pas de conflit).
+    dw 5
+    dw 0
+    dd 20
+    dd 1024        ; largeur souhaitée
+    dd 768         ; hauteur souhaitée
+    dd 32          ; bpp
+align 8
     ; tag de fin { type=0, flags=0, size=8 }
     dw 0
     dw 0

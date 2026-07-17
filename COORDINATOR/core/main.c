@@ -16,6 +16,8 @@
 #include "iommu.h"
 #include "monitor.h"
 #include "bench.h"
+#include "fb.h"
+#include "splash.h"
 #include "branding.h"
 
 /* Sortie propre de QEMU (device isa-debug-exit) : écrire sur 0xF4 termine QEMU.
@@ -102,6 +104,10 @@ void kmain(u64 magic, u64 mbi_addr) {
     struct topology topo;
     topology_parse_madt(madt, &topo);
     topology_print(&topo);
+
+    /* ---- Framebuffer (Multiboot2) + écran de démarrage graphique ---- */
+    fb_init(mb2_find_framebuffer(mbi));
+    splash_draw(OS_NAME, KERNEL_NAME, OS_VERSION, topo.enabled_count);
 
     partition_plan(&topo);
     ram_report(mbi);

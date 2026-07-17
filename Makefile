@@ -15,7 +15,7 @@ MEM ?= 512
 OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' branding.h)
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
-            -IHAL/iommu -IHAL/apic -IHAL/input -IBOOT/stage2 -ICOORDINATOR/topology \
+            -IHAL/iommu -IHAL/apic -IHAL/input -IHAL/gpu -IBOOT/stage2 -ICOORDINATOR/topology \
             -ICOORDINATOR/mm -ICOORDINATOR/smp -ICOORDINATOR/monitor -ICOORDINATOR/bench \
             -IIPC/proto -IIPC/ring -IIPC/doorbell -IIPC/channels \
             -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf \
@@ -48,6 +48,8 @@ C_SRC := \
     HAL/iommu/iommu.c \
     HAL/apic/ioapic.c \
     HAL/input/ps2.c \
+    HAL/gpu/fb.c \
+    HAL/gpu/splash.c \
     BOOT/stage2/multiboot2.c \
     COORDINATOR/topology/topology.c \
     COORDINATOR/monitor/monitor.c \
@@ -159,7 +161,7 @@ run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
 # Validation automatisée (CI archi + unitaire hôte + QEMU Phase 6 + clavier PS/2).
-test: ci test-unit test-phase6 test-phase8
+test: ci test-unit test-phase6 test-phase8 test-phase9
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
@@ -181,6 +183,9 @@ test-phase6: $(ISO)
 
 test-phase8: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase8_kbd.sh
+
+test-phase9: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase9_fb.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:
