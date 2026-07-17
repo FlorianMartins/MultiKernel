@@ -16,6 +16,7 @@
 #include "io_channel.h"
 #include "ioapic.h"
 #include "ps2.h"
+#include "ps2mouse.h"
 #include "nodel.h"
 #include "nodew.h"
 
@@ -349,6 +350,13 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base,
         ioapic_init_from_madt(madt, 1, &kbd);        /* IRQ1 = clavier */
         pic_disable();
         ioapic_route(&kbd, kbd.kbd_gsi, KBD_IRQ_VECTOR, (u8)nodel_apic);
+#ifdef NODEL_GUI
+        {
+            struct ioapic_cfg mse;
+            ioapic_init_from_madt(madt, 12, &mse);   /* IRQ12 = souris -> Node-L (GUI) */
+            ioapic_route(&mse, mse.kbd_gsi, MOUSE_IRQ_VECTOR, (u8)nodel_apic);
+        }
+#endif
     }
 
     /* Copier le trampoline. */

@@ -8,6 +8,8 @@
 #include "kc/cpu.h"
 #include "io_channel.h"   /* back-end I/O croisé servi par Node-L (Phase 5) */
 #include "ps2.h"          /* clavier PS/2 bufferisé par interruption (Phase 8) */
+#include "ps2mouse.h"     /* souris PS/2 pour le compositeur (Phase 11) */
+#include "fb.h"
 
 extern void nodel_gdt_init(u64 kernel_stack_top);
 extern void nodel_idt_init(void);
@@ -59,6 +61,9 @@ void node_l_main(void) {
     nodel_gdt_init((u64)(uintptr_t)&kstack[sizeof(kstack)]);
     nodel_idt_init();
     ps2_kbd_init();   /* le routage IO-APIC de l'IRQ1 -> ce cœur est fait par le BSP */
+#ifdef NODEL_GUI
+    if (fb_ready()) ps2_mouse_init(fb_get()->width, fb_get()->height);
+#endif
     serial_printf("[node-l] GDT/TSS + IDT ready (syscalls int 0x80, clavier PS/2 IRQ)\n");
 
     /* 3) ordonnanceur : 2 tâches coopératives */

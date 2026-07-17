@@ -2,10 +2,17 @@
  * Convention : numéro dans rax, args rdi/rsi/rdx, retour rax ; via `int 0x80`. */
 #pragma once
 
-#define SYS_write  1   /* (fd, buf, len)  -> octets écrits (fd 1 = console) */
-#define SYS_getpid 2   /* ()              -> pid */
-#define SYS_yield  3   /* ()              -> 0  (cède la main à l'ordonnanceur) */
-#define SYS_exit   4   /* (code)          -> ne revient pas */
-#define SYS_read   5   /* (fd, buf, len)  -> octets lus (0 si rien ; NON bloquant) */
+#define SYS_write      1   /* (fd, buf, len)  -> octets écrits (fd 1 = console) */
+#define SYS_getpid     2   /* ()              -> pid */
+#define SYS_yield      3   /* ()              -> 0  (cède la main à l'ordonnanceur) */
+#define SYS_exit       4   /* (code)          -> ne revient pas */
+#define SYS_read       5   /* (fd, buf, len)  -> octets lus (0 si rien ; NON bloquant) */
+#define SYS_fb_info    6   /* (fb_info_user*) -> 0 ; écrit {w,h,pitch,bpp} */
+#define SYS_fb_present 7   /* (buf, len)      -> 0 ; copie back buffer user -> framebuffer */
+#define SYS_mouse      8   /* (mouse_user*)   -> 0 ; écrit {x,y,buttons} */
 
 #define SYSCALL_VECTOR 0x80
+
+/* Structures partagées noyau <-> userland (ABI). */
+struct fb_info_user { unsigned int w, h, pitch, bpp; };
+struct mouse_user   { int x, y; unsigned int buttons; };

@@ -1,8 +1,11 @@
 /* NEXUS-OS Node-L — dispatch des appels système (appelé depuis syscall_entry). */
 #include "syscall.h"
 #include "kc/types.h"
+#include "kc/string.h"
 #include "serial.h"
 #include "ps2.h"
+#include "ps2mouse.h"
+#include "fb.h"
 
 extern void sched_yield(void);
 extern volatile u32 g_nodel_user_exited;
@@ -17,7 +20,7 @@ extern void kctx_restore(u64 *buf, long val);
 #define USER_HI 0x6000000ull
 
 static bool user_range_ok(u64 ptr, u64 len) {
-    if (len > (1u << 20)) return false;              /* borne dure */
+    if (len > (8u << 20)) return false;              /* borne dure (couvre le back buffer 3 MiB) */
     if (ptr < USER_LO || ptr >= USER_HI) return false;
     if (ptr + len < ptr || ptr + len > USER_HI) return false;
     return true;
@@ -57,6 +60,37 @@ u64 syscall_dispatch(u64 num, u64 a1, u64 a2, u64 a3) {
             if (c == '\n') break;
         }
         return n;
+    }
+
+    case SYS_fb_info: {
+        /* (fb_info_user*) : écrit les dimensions du framebuffer pour le userland. */
+        if (!user_range_ok(a1, sizeof(struct fb_info_user)) || !fb_ready()) return (u64)-1;
+        const struct fb_info *fb = fb_get();
+        struct fb_info_user *u = (struct fb_info_user *)(uintptr_t)a1;
+        u->w = fb->width; u->h = fb->height; u->pitch = fb->pitch; u->bpp = fb->bpp;
+        return 0;
+    }
+
+    case SYS_fb_present: {
+        /* (buf, len) : copie le back buffer user -> framebuffer matériel (côté noyau).
+         * SÉCURITÉ : bornes du buffer validées ; le noyau seul touche la MMIO GPU. */
+        u64 buf = a1, len = a2;
+        if (!fb_ready()) return (u64)-1;
+        const struct fb_info *fb = fb_get();
+        u64 need = (u64)fb->width * fb->height * 4;
+        if (len < need) return (u64)-1;
+        if (!user_range_ok(buf, need)) return (u64)-1;
+        fb_blit_from((const u32 *)(uintptr_t)buf);
+        return 0;
+    }
+
+    case SYS_mouse: {
+        /* (mouse_user*) : état souris courant. */
+        if (!user_range_ok(a1, sizeof(struct mouse_user))) return (u64)-1;
+        const struct mouse_state *m = mouse_get();
+        struct mouse_user *u = (struct mouse_user *)(uintptr_t)a1;
+        u->x = m->x; u->y = m->y; u->buttons = m->buttons;
+        return 0;
     }
 
     case SYS_exit:

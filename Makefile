@@ -24,7 +24,7 @@ INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acp
 # Flags de fault-injection (tests Phase 6). Vides en build nominal.
 NODEW_FAULT_ONCE ?=
 NODEL_WX_TEST ?=
-HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TEST),-DNODEL_WX_TEST,) $(if $(GFX_DEMO),-DGFX_DEMO,)
+HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TEST),-DNODEL_WX_TEST,) $(if $(GFX_DEMO),-DGFX_DEMO,) $(if $(NODEL_GUI),-DNODEL_GUI,)
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -116,13 +116,18 @@ $(BUILD)/COORDINATOR/smp/tramp_blob.o: $(TRAMP_BIN)
 USER_ELF := $(BUILD)/nodel_user.elf
 UCFLAGS  := -ffreestanding -nostdlib -fno-pic -fno-pie -mno-red-zone \
             -mgeneral-regs-only -fno-stack-protector -std=gnu11 -O2 -Wall -Wextra \
-            -fno-asynchronous-unwind-tables $(HARDEN_DEFS) -INODE-L/syscall
+            -fno-asynchronous-unwind-tables $(HARDEN_DEFS) -INODE-L/syscall -IHAL/gpu \
+            -ILIBS/libkc/include
+# Le compositeur (gui.c) n'est lié que pour le build GUI.
+USER_SRC := NODE-L/userland/init.c $(if $(NODEL_GUI),NODE-L/userland/gui.c,)
 
-$(USER_ELF): NODE-L/userland/init.c NODE-L/userland/user.ld
+$(USER_ELF): $(USER_SRC) NODE-L/userland/user.ld
 	@mkdir -p $(dir $@)
 	$(CC) $(UCFLAGS) -c NODE-L/userland/init.c -o $(BUILD)/nodel_user_init.o
-	$(LD) -n -T NODE-L/userland/user.ld -o $@ $(BUILD)/nodel_user_init.o
-	@echo "==> built userland $@"
+	$(if $(NODEL_GUI),$(CC) $(UCFLAGS) -c NODE-L/userland/gui.c -o $(BUILD)/nodel_user_gui.o,)
+	$(LD) -n -T NODE-L/userland/user.ld -o $@ $(BUILD)/nodel_user_init.o \
+	    $(if $(NODEL_GUI),$(BUILD)/nodel_user_gui.o,)
+	@echo "==> built userland $@ $(if $(NODEL_GUI),[GUI],)"
 
 # user_blob.c fait un .incbin de build/nodel_user.elf -> dépendance explicite
 $(BUILD)/NODE-L/userland/user_blob.o: $(USER_ELF)
@@ -192,6 +197,9 @@ test-phase9: $(ISO)
 # Souris PS/2 + double buffering (rebuild GFX_DEMO=1 en interne, restaure le nominal).
 test-phase10:
 	@SMP=$(SMP) MEM=$(MEM) bash TESTS/qemu/run_phase10_mouse.sh
+
+test-phase11:
+	@SMP=$(SMP) MEM=$(MEM) bash TESTS/qemu/run_phase11_gui.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:

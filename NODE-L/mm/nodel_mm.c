@@ -3,6 +3,7 @@
  * Tables statiques (BSS, identité) -> adresse = physique. */
 #include "nodel_mm.h"
 #include "kc/string.h"
+#include "fb.h"
 
 #define PTE_P   (1ull << 0)
 #define PTE_W   (1ull << 1)
@@ -54,10 +55,22 @@ u64 nodel_mm_activate(void) {
     /* fenêtre user : ring 3, W^X (code X, pile/données NX) */
     map_user_wx(NODEL_USER_WIN_BASE, NODEL_USER_WIN_SIZE, NODEL_USER_LOAD_BASE);
 
-    /* MMIO LAPIC (UC) dans le 4e GiB : requis pour l'EOI des IRQ (clavier). */
+    /* MMIO LAPIC (UC) dans le 4e GiB : requis pour l'EOI des IRQ (clavier/souris). */
     nodel_pd_hi[(LAPIC_PHYS >> 21) & 0x1FF] =
         (LAPIC_PHYS & ~0x1FFFFFull) | PTE_P | PTE_W | PTE_PS | PTE_PCD | PTE_PWT | PTE_NX;
     nodel_pdpt[(LAPIC_PHYS >> 30) & 0x1FF] = (u64)(uintptr_t)nodel_pd_hi | PTE_P | PTE_W;
+
+    /* Framebuffer mappé SUPERVISEUR (U=0) : seul le noyau y accède (SYS_fb_present).
+     * Adresse réelle via fb_get() ; on couvre 8 MiB (4 pages 2 MiB) aligné 2 MiB. */
+    if (fb_ready()) {
+        u64 fbp = fb_get()->addr & ~0x1FFFFFull;
+        for (u64 off = 0; off < 0x800000ull; off += 2 * MiB) {
+            u64 pa = fbp + off;
+            if ((pa >> 30) == 3)   /* dans le 4e GiB couvert par pd_hi */
+                nodel_pd_hi[(pa >> 21) & 0x1FF] =
+                    (pa & ~0x1FFFFFull) | PTE_P | PTE_W | PTE_PS | PTE_PCD | PTE_PWT | PTE_NX;
+        }
+    }
 
     nodel_pdpt[0] = (u64)(uintptr_t)nodel_pd   | PTE_P | PTE_W | PTE_U;
     nodel_pml4[0] = (u64)(uintptr_t)nodel_pdpt | PTE_P | PTE_W | PTE_U;

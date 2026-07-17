@@ -7,9 +7,11 @@ extern u64  isr_table[32];        /* stubs d'exception (COORDINATOR/smp/isr.asm)
 extern void load_idt(void *idt_ptr);
 extern void syscall_entry(void);  /* NODE-L/kernel/entry.asm */
 extern void isr_keyboard(void);   /* HAL/input/irq.asm */
+extern void isr_mouse(void);
 extern void isr_timer_ignore(void);
 extern void isr_spurious(void);
 #include "ps2.h"                   /* KBD_IRQ_VECTOR, TIMER_IRQ_VECTOR, SPURIOUS_VECTOR */
+#include "ps2mouse.h"              /* MOUSE_IRQ_VECTOR */
 
 struct idt_entry {
     u16 off_lo; u16 sel; u8 ist; u8 type_attr; u16 off_mid; u32 off_hi; u32 zero;
@@ -36,6 +38,7 @@ void nodel_idt_init(void) {
     set_gate(SYSCALL_VECTOR, (u64)(uintptr_t)&syscall_entry, 3, 0xF);
     /* IRQ (gates d'interruption DPL0 : IF=0 pendant le handler, pas de ré-entrance). */
     set_gate(KBD_IRQ_VECTOR,   (u64)(uintptr_t)&isr_keyboard,     0, 0xE);
+    set_gate(MOUSE_IRQ_VECTOR, (u64)(uintptr_t)&isr_mouse,        0, 0xE);
     set_gate(TIMER_IRQ_VECTOR, (u64)(uintptr_t)&isr_timer_ignore, 0, 0xE);
     set_gate(SPURIOUS_VECTOR,  (u64)(uintptr_t)&isr_spurious,     0, 0xE);
     g_idt_ptr.limit = sizeof(g_idt) - 1;

@@ -11,6 +11,8 @@
 
 static struct mouse_state g_mouse;
 static u32 g_w, g_h;
+static u8  pkt[3];
+static u8  phase;   /* phase d'assemblage des paquets 3 octets */
 
 /* --- accès contrôleur 8042 avec attente --- */
 static void ps2_wait_write(void) { for (int i = 0; i < 100000; i++) if (!(inb(PS2_STATUS) & 2)) return; }
@@ -42,14 +44,16 @@ void ps2_mouse_init(u32 screen_w, u32 screen_h) {
     mouse_write(0xF6); (void)mouse_read();            /* set defaults (ACK) */
     mouse_write(0xF4); (void)mouse_read();            /* enable data reporting (ACK) */
 
+    /* Vide tout octet résiduel du buffer de sortie + resync du décodeur de paquets :
+     * sinon un octet en attente déclenche l'ISR (une fois IF=1) et décale le curseur. */
+    for (int i = 0; i < 16; i++) if (inb(PS2_STATUS) & 1) (void)inb(PS2_DATA);
+    phase = 0;
+
     serial_printf("[mouse] souris PS/2 initialisée (IRQ12 -> vec 0x%x), curseur @(%d,%d)\n",
                   MOUSE_IRQ_VECTOR, g_mouse.x, g_mouse.y);
 }
 
 /* --- assemblage des paquets 3 octets --- */
-static u8 pkt[3];
-static u8 phase;
-
 void mouse_handle(void) {
     u8 b = inb(PS2_DATA);
 

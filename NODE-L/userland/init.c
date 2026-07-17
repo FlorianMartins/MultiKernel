@@ -35,6 +35,12 @@ static int starts(const char *line, const char *kw) {
 }
 
 void _start(void) {
+#ifdef NODEL_GUI
+    /* Mode graphique : lancer le compositeur au lieu du shell (Phase 11). */
+    extern void gui_main(void);
+    gui_main();
+    sys_exit(0);
+#endif
     puts_("\n");
     puts_("  +--------------------------------------------+\n");
     puts_("  |  Prism Node-L userland  (ring 3, POSIX)     |\n");

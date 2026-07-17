@@ -27,6 +27,9 @@ const struct fb_info *fb_get(void);
  * Élimine scintillement/déchirure. Nécessite width*height <= FB_BACKBUF_MAX. */
 bool fb_enable_backbuffer(void);
 void fb_present(void);
+/* Copie un buffer source (w*h contigu, format pixel FB) vers le framebuffer matériel.
+ * Utilisé par le noyau pour présenter le back buffer d'un userland (SYS_fb_present). */
+void fb_blit_from(const u32 *src);
 
 void fb_clear(u32 color);
 void fb_put_pixel(u32 x, u32 y, u32 color);

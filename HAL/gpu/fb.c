@@ -22,10 +22,15 @@ bool fb_enable_backbuffer(void) {
 
 void fb_present(void) {
     if (!g_fb.present || !g_use_backbuf) return;
+    fb_blit_from(g_backbuf);
+}
+
+void fb_blit_from(const u32 *src) {
+    if (!g_fb.present || !src) return;
     for (u32 y = 0; y < g_fb.height; y++) {
         u32 *dst = (u32 *)(uintptr_t)(g_fb.addr + (u64)y * g_fb.pitch);
-        const u32 *src = &g_backbuf[(u64)y * g_fb.width];
-        for (u32 x = 0; x < g_fb.width; x++) dst[x] = src[x];
+        const u32 *s = &src[(u64)y * g_fb.width];
+        for (u32 x = 0; x < g_fb.width; x++) dst[x] = s[x];
     }
 }
 
