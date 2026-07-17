@@ -7,10 +7,11 @@
 #include "serial.h"
 #include "kc/cpu.h"
 #include "io_channel.h"   /* back-end I/O croisé servi par Node-L (Phase 5) */
+#include "ps2.h"          /* clavier PS/2 bufferisé par interruption (Phase 8) */
 
 extern void nodel_gdt_init(u64 kernel_stack_top);
 extern void nodel_idt_init(void);
-extern void enter_user(u64 entry, u64 user_stack);
+extern void enter_user(u64 entry, u64 user_stack, u64 rflags);
 extern long kctx_save(u64 *buf);
 
 /* userland ELF incorporé (LOADERS/elf via .incbin dans user_blob.c) */
@@ -57,7 +58,8 @@ void node_l_main(void) {
     /* 2) GDT/TSS + IDT (syscalls) */
     nodel_gdt_init((u64)(uintptr_t)&kstack[sizeof(kstack)]);
     nodel_idt_init();
-    serial_printf("[node-l] GDT/TSS + IDT ready (syscalls via int 0x80)\n");
+    ps2_kbd_init();   /* le routage IO-APIC de l'IRQ1 -> ce cœur est fait par le BSP */
+    serial_printf("[node-l] GDT/TSS + IDT ready (syscalls int 0x80, clavier PS/2 IRQ)\n");
 
     /* 3) ordonnanceur : 2 tâches coopératives */
     sched_init();
@@ -77,9 +79,9 @@ void node_l_main(void) {
     } else {
         /* 5) point de reprise puis passage en ring 3 */
         if (kctx_save(g_return_ctx) == 0) {
-            serial_printf("[node-l] entering ring 3 @0x%lx\n", entry);
+            serial_printf("[node-l] entering ring 3 @0x%lx (IF=1, clavier actif)\n", entry);
             g_nodel.user_ran = true;
-            enter_user(entry, NODEL_USER_STACK_TOP);
+            enter_user(entry, NODEL_USER_STACK_TOP, 0x202);   /* IF=1 : IRQ clavier en ring 3 */
             /* enter_user ne revient pas : le retour se fait par kctx_restore (SYS_exit) */
         }
         /* reprise ici après SYS_exit */

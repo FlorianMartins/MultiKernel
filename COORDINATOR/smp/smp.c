@@ -14,6 +14,8 @@
 #include "ring.h"
 #include "doorbell.h"
 #include "io_channel.h"
+#include "ioapic.h"
+#include "ps2.h"
 #include "nodel.h"
 #include "nodew.h"
 
@@ -276,7 +278,8 @@ void exc_handler(u64 vec, u64 err, u64 cr2) {
 }
 
 /* ================= BSP : réveil + orchestration ================= */
-struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
+struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base,
+                               const struct acpi_madt *madt) {
     struct smp_result r;
     memset(&r, 0, sizeof(r));
 
@@ -337,6 +340,16 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
     u32 nodew_apic  = (nodew_idx >= 0) ? t->cpus[nodew_idx].apic_id : 0;
     u64 nodew_stack = (nodew_idx >= 0)
                     ? (u64)(uintptr_t)&ap_stacks[nodew_idx][AP_STACK_SIZE] : 0;
+
+    /* Clavier PS/2 (Phase 8) : masquer le PIC + router l'IRQ1 via l'IO-APIC vers le
+     * cœur qui exécute le shell Node-L. Le pilote 8042 est initialisé par ce cœur. */
+    if (nodel_idx >= 0) {
+        u32 nodel_apic = t->cpus[nodel_idx].apic_id;
+        struct ioapic_cfg kbd;
+        ioapic_init_from_madt(madt, 1, &kbd);        /* IRQ1 = clavier */
+        pic_disable();
+        ioapic_route(&kbd, kbd.kbd_gsi, KBD_IRQ_VECTOR, (u8)nodel_apic);
+    }
 
     /* Copier le trampoline. */
     u64 tramp_sz = (u64)(tramp_blob_end - tramp_blob_start);

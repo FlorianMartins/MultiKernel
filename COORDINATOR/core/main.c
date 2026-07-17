@@ -117,7 +117,7 @@ void kmain(u64 magic, u64 mbi_addr) {
     bench_run();
 
     /* ---- Phases 2..6 : réveil des AP, isolation, IPC, nœuds, résilience ---- */
-    struct smp_result r = smp_boot_aps(&topo, topo.local_apic_addr);
+    struct smp_result r = smp_boot_aps(&topo, topo.local_apic_addr, madt);
 
     bool started_ok = (r.started == r.expected);
     bool iso_ok     = (r.iso_pass == r.iso_expected) && (r.iso_fail == 0);

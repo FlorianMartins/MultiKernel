@@ -40,4 +40,5 @@ struct smp_result {
     bool nodel_survived_restart;  /* Node-L est resté vivant pendant le restart de W */
 };
 
-struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base);
+struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base,
+                               const struct acpi_madt *madt);

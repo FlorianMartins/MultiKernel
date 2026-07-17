@@ -42,7 +42,25 @@ struct acpi_madt_entry_hdr {
 } __attribute__((packed));
 
 #define ACPI_MADT_LAPIC  0  /* Processor Local APIC */
+#define ACPI_MADT_IOAPIC 1  /* I/O APIC */
+#define ACPI_MADT_ISO    2  /* Interrupt Source Override */
 #define ACPI_MADT_X2APIC 9  /* Processor Local x2APIC */
+
+struct acpi_madt_ioapic {
+    struct acpi_madt_entry_hdr h;
+    u8  ioapic_id;
+    u8  reserved;
+    u32 ioapic_addr;
+    u32 gsi_base;
+} __attribute__((packed));
+
+struct acpi_madt_iso {
+    struct acpi_madt_entry_hdr h;
+    u8  bus;
+    u8  source_irq;   /* IRQ ISA (ex 1 = clavier) */
+    u32 gsi;          /* GSI cible */
+    u16 flags;
+} __attribute__((packed));
 
 struct acpi_madt_lapic {
     struct acpi_madt_entry_hdr h;

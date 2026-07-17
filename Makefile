@@ -15,8 +15,8 @@ MEM ?= 512
 OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' branding.h)
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
-            -IHAL/iommu -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm \
-            -ICOORDINATOR/smp -ICOORDINATOR/monitor -ICOORDINATOR/bench \
+            -IHAL/iommu -IHAL/apic -IHAL/input -IBOOT/stage2 -ICOORDINATOR/topology \
+            -ICOORDINATOR/mm -ICOORDINATOR/smp -ICOORDINATOR/monitor -ICOORDINATOR/bench \
             -IIPC/proto -IIPC/ring -IIPC/doorbell -IIPC/channels \
             -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf \
             -INODE-W/kernel -INODE-W/executive -ILOADERS/pe
@@ -46,6 +46,8 @@ C_SRC := \
     HAL/serial/serial.c \
     HAL/acpi/acpi.c \
     HAL/iommu/iommu.c \
+    HAL/apic/ioapic.c \
+    HAL/input/ps2.c \
     BOOT/stage2/multiboot2.c \
     COORDINATOR/topology/topology.c \
     COORDINATOR/monitor/monitor.c \
@@ -73,7 +75,7 @@ C_SRC := \
     LOADERS/pe/pe.c \
     COORDINATOR/core/main.c
 
-ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm \
+ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm HAL/input/irq.asm \
            LIBS/librt/arch.asm NODE-L/kernel/entry.asm NODE-W/kernel/nt_entry.asm
 
 # Trampoline AP : blob binaire à plat (org 0x8000), incorporé par tramp_blob.c.
@@ -156,8 +158,8 @@ run: $(ISO)
 run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
-# Validation automatisée (CI archi + unitaire hôte + intégration QEMU Phase 4).
-test: ci test-unit test-phase6
+# Validation automatisée (CI archi + unitaire hôte + QEMU Phase 6 + clavier PS/2).
+test: ci test-unit test-phase6 test-phase8
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
@@ -176,6 +178,9 @@ test-phase5: $(ISO)
 
 test-phase6: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase6.sh
+
+test-phase8: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase8_kbd.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:

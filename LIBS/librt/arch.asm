@@ -14,15 +14,16 @@ global tss_flush
 
 section .text
 
-; --- void enter_user(u64 entry (rdi), u64 user_stack (rsi)) : bascule en ring 3 ---
-; IF=0 : les nœuds n'utilisent pas d'IRQ en ring 3 pour l'instant.
+; --- void enter_user(u64 entry (rdi), u64 user_stack (rsi), u64 rflags (rdx)) ---
+; Bascule en ring 3. rflags permet à Node-L d'activer IF=1 (0x202) pour recevoir les
+; IRQ (clavier) en ring 3 ; Node-W passe 0x002 (IF=0).
 enter_user:
     mov ax, 0x23                    ; udata | RPL3
     mov ds, ax
     mov es, ax
     push 0x23                       ; SS
     push rsi                        ; RSP
-    push 0x002                      ; RFLAGS (IF=0)
+    push rdx                        ; RFLAGS (fourni par l'appelant)
     push 0x1B                       ; CS (ucode | RPL3)
     push rdi                        ; RIP
     iretq

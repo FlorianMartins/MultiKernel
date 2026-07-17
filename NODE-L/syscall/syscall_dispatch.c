@@ -2,6 +2,7 @@
 #include "syscall.h"
 #include "kc/types.h"
 #include "serial.h"
+#include "ps2.h"
 
 extern void sched_yield(void);
 extern volatile u32 g_nodel_user_exited;
@@ -47,7 +48,11 @@ u64 syscall_dispatch(u64 num, u64 a1, u64 a2, u64 a3) {
         char *p = (char *)(uintptr_t)buf;
         u64 n = 0;
         int c;
-        while (n < len && (c = serial_getc_nonblock()) >= 0) {
+        /* Fusion des sources d'entrée : série (banc web / pipe) ET clavier PS/2 (IRQ). */
+        while (n < len) {
+            c = serial_getc_nonblock();
+            if (c < 0) c = kbd_getc_nonblock();
+            if (c < 0) break;
             p[n++] = (char)c;
             if (c == '\n') break;
         }

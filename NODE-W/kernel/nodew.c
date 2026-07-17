@@ -8,7 +8,7 @@
 
 extern void nodew_gdt_init(u64 kernel_stack_top);
 extern void nodew_idt_init(void);
-extern void enter_user(u64 entry, u64 user_stack);
+extern void enter_user(u64 entry, u64 user_stack, u64 rflags);
 extern long kctx_save(u64 *buf);
 
 /* PE incorporé (NODE-W/subsystems/pe_blob.c via .incbin) */
@@ -61,7 +61,7 @@ void node_w_main(void) {
         if (kctx_save(g_nodew_return_ctx) == 0) {
             serial_printf("[node-w] entering ring 3 @0x%lx\n", entry);
             g_nodew.user_ran = true;
-            enter_user(entry, NODEW_USER_STACK_TOP);
+            enter_user(entry, NODEW_USER_STACK_TOP, 0x002);   /* IF=0 : pas d'IRQ côté Node-W */
         }
         /* reprise après NtTerminateProcess */
         g_nodew.terminated = (g_nodew_terminated != 0);
