@@ -16,7 +16,7 @@ OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' brand
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
             -IHAL/iommu -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm \
-            -ICOORDINATOR/smp -ICOORDINATOR/monitor \
+            -ICOORDINATOR/smp -ICOORDINATOR/monitor -ICOORDINATOR/bench \
             -IIPC/proto -IIPC/ring -IIPC/doorbell -IIPC/channels \
             -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf \
             -INODE-W/kernel -INODE-W/executive -ILOADERS/pe
@@ -28,9 +28,12 @@ HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TES
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
+# Optimisation (Phase 7) : -O3 + déroulage + ordonnancement générique moderne.
+# On reste -mgeneral-regs-only (pas de SSE/AVX : CR4.OSFXSR non configuré -> sûr).
+OPT := -O3 -funroll-loops -finline-functions -mtune=generic
 CFLAGS := -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
           -mno-red-zone -mgeneral-regs-only -mcmodel=small \
-          -std=gnu11 -O2 -Wall -Wextra \
+          -std=gnu11 $(OPT) -Wall -Wextra \
           -fno-builtin -fno-tree-loop-distribute-patterns \
           -fno-asynchronous-unwind-tables $(HARDEN_DEFS) $(INCLUDES)
 
@@ -46,6 +49,7 @@ C_SRC := \
     BOOT/stage2/multiboot2.c \
     COORDINATOR/topology/topology.c \
     COORDINATOR/monitor/monitor.c \
+    COORDINATOR/bench/bench.c \
     COORDINATOR/mm/mm.c \
     COORDINATOR/smp/smp.c \
     COORDINATOR/smp/tramp_blob.c \
@@ -186,6 +190,12 @@ test-unit:
 	@$(CC) -O2 -pthread -ILIBS/libkc/include -IIPC/proto -IIPC/ring \
 	    TESTS/unit/test_ring.c IPC/ring/ring.c -o $(BUILD)/test_ring
 	@$(BUILD)/test_ring
+
+# Bench perf du ring sur matériel réel (hôte) : débit + cycles/msg cross-cœur.
+bench-host:
+	@$(CC) -O2 -pthread -ILIBS/libkc/include -IIPC/proto -IIPC/ring \
+	    TESTS/unit/bench_ring.c IPC/ring/ring.c -o $(BUILD)/bench_ring
+	@$(BUILD)/bench_ring
 
 clean:
 	rm -rf $(BUILD)

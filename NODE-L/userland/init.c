@@ -43,6 +43,20 @@ void _start(void) {
     put_uint((unsigned long)sys_getpid());
     puts_("\n");
 
+    /* Bench syscall (Phase 7) : latence aller-retour ring3<->ring0 en cycles. */
+    {
+        unsigned long n = 20000, i;
+        unsigned int lo, hi;
+        __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+        unsigned long t0 = ((unsigned long)hi << 32) | lo;
+        for (i = 0; i < n; i++) (void)sys_getpid();
+        __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+        unsigned long t1 = ((unsigned long)hi << 32) | lo;
+        puts_("[bench] syscall (getpid) : ");
+        put_uint((t1 - t0) / n);
+        puts_(" cycles/syscall\n");
+    }
+
 #ifdef NODEL_WX_TEST
     /* Durcissement W^X (Phase 6) : tenter d'exécuter du code depuis la pile (NX)
      * -> doit provoquer un #PF. Prouve que la pile user n'est pas exécutable. */

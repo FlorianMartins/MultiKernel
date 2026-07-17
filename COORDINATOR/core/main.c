@@ -15,6 +15,7 @@
 #include "smp.h"
 #include "iommu.h"
 #include "monitor.h"
+#include "bench.h"
 #include "branding.h"
 
 /* Sortie propre de QEMU (device isa-debug-exit) : écrire sur 0xF4 termine QEMU.
@@ -111,6 +112,9 @@ void kmain(u64 magic, u64 mbi_addr) {
     struct iommu_info iommu;
     iommu_detect(rsdp, &iommu);
     monitor_anticheat_report();
+
+    /* ---- Phase 7 : micro-benchmarks (chemins chauds) ---- */
+    bench_run();
 
     /* ---- Phases 2..6 : réveil des AP, isolation, IPC, nœuds, résilience ---- */
     struct smp_result r = smp_boot_aps(&topo, topo.local_apic_addr);

@@ -14,8 +14,15 @@ struct ipc_ring {
     u32 slot_size;
     u32 slot_count;
 
+    /* Indices partagés, chacun sur sa propre ligne de cache (anti false-sharing). */
     _Alignas(64) volatile u32 producer_head;  /* écrit par le PRODUCTEUR seul */
     _Alignas(64) volatile u32 consumer_tail;  /* écrit par le CONSOMMATEUR seul */
+
+    /* Caches privés (technique LMAX Disruptor) : évitent de relire l'indice de
+     * l'autre cœur à chaque opération -> moins de trafic de cohérence MESI.
+     * cached_tail sur la ligne du producteur, cached_head sur celle du consommateur. */
+    _Alignas(64) u32 cached_tail;             /* vu privé du producteur */
+    _Alignas(64) u32 cached_head;             /* vu privé du consommateur */
 
     _Alignas(64) struct ipc_msg slots[IPC_RING_SLOTS];
 };

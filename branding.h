@@ -12,4 +12,4 @@
 #define OS_NAME     "Prism"
 #define KERNEL_NAME "Axis"
 #define OS_TAGLINE  "Asymmetric Multikernel / Microkernel Coordinator"
-#define OS_VERSION  "0.6.0-phase6"
+#define OS_VERSION  "0.7.0-phase7"
