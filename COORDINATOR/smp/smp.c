@@ -13,6 +13,7 @@
 #include "kc/string.h"
 #include "ring.h"
 #include "doorbell.h"
+#include "nodel.h"
 
 /* ---- symboles asm ---- */
 extern u64  isr_table[32];
@@ -73,7 +74,7 @@ static void idt_init(void) {
 }
 
 /* ---- table runtime des cœurs ---- */
-enum ap_role { ROLE_ISOLATION = 0, ROLE_PRODUCER, ROLE_CONSUMER };
+enum ap_role { ROLE_ISOLATION = 0, ROLE_PRODUCER, ROLE_CONSUMER, ROLE_NODEL_KERNEL };
 
 struct cpu_rt {
     u32          apic_id;
@@ -243,9 +244,14 @@ void ap_main(void) {
     if (!c) hlt_forever();
 
     switch (c->role) {
-    case ROLE_PRODUCER: run_producer(id);      break;
-    case ROLE_CONSUMER: run_consumer(id);      break;
-    default:            run_isolation(id, c);  break;
+    case ROLE_PRODUCER:     run_producer(id);      break;
+    case ROLE_CONSUMER:     run_consumer(id);      break;
+    case ROLE_NODEL_KERNEL:
+        __atomic_add_fetch(&g_ap_alive, 1, __ATOMIC_SEQ_CST);
+        serial_printf("[smp] apic=%u -> Node-L sovereign kernel\n", id);
+        node_l_main();                             /* ne revient pas (idle) */
+        break;
+    default:                run_isolation(id, c);  break;
     }
 }
 
@@ -276,12 +282,16 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
     u64 cr3_W = mm_build_domain_cr3(DOM_NODE_W);
     u32 my = cpu_apic_id();
 
-    /* Trouver le 1er cœur AP éligible de chaque nœud (pour producteur/consommateur). */
-    int prod_idx = -1, cons_idx = -1;
+    /* Rôles : 1er cœur Node-L -> NODEL_KERNEL ; 2e cœur Node-L -> PRODUCER (IPC) ;
+     * 1er cœur Node-W -> CONSUMER (IPC, si un producteur existe). */
+    int nodel_idx = -1, prod_idx = -1, cons_idx = -1;
     for (u32 i = 0; i < t->cpu_count; i++) {
         enum domain d = mm_domain_of(t, i);
         if (t->cpus[i].apic_id == my || d == DOM_COORD || !t->cpus[i].enabled) continue;
-        if (d == DOM_NODE_L && prod_idx < 0) prod_idx = (int)i;
+        if (d == DOM_NODE_L) {
+            if (nodel_idx < 0)      nodel_idx = (int)i;
+            else if (prod_idx < 0)  prod_idx  = (int)i;
+        }
         if (d == DOM_NODE_W && cons_idx < 0) cons_idx = (int)i;
     }
     bool ipc_on = (prod_idx >= 0 && cons_idx >= 0);
@@ -297,6 +307,7 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         c->forbidden = (d == DOM_NODE_L) ? MM_NODE_W_BASE : MM_NODE_L_BASE;
         c->used      = true;
         c->role      = ROLE_ISOLATION;
+        if ((int)i == nodel_idx)          c->role = ROLE_NODEL_KERNEL;
         if (ipc_on && (int)i == prod_idx) c->role = ROLE_PRODUCER;
         if (ipc_on && (int)i == cons_idx) c->role = ROLE_CONSUMER;
     }
@@ -305,6 +316,7 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         r.ipc_enabled   = true;
         r.ipc_expected  = IPC_MSG_COUNT;
     }
+    r.nodel_present = (nodel_idx >= 0);
 
     /* Copier le trampoline. */
     u64 tramp_sz = (u64)(tramp_blob_end - tramp_blob_start);
@@ -334,8 +346,9 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         *p_entry = (u64)(uintptr_t)&ap_main;
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
-        const char *role = g_cpus[i].role == ROLE_PRODUCER ? "PRODUCER"
-                         : g_cpus[i].role == ROLE_CONSUMER ? "CONSUMER" : "isolation";
+        const char *role = g_cpus[i].role == ROLE_PRODUCER     ? "PRODUCER"
+                         : g_cpus[i].role == ROLE_CONSUMER     ? "CONSUMER"
+                         : g_cpus[i].role == ROLE_NODEL_KERNEL ? "NODE-L-KERNEL" : "isolation";
         serial_printf("[smp] waking apic=%u -> %s [%s] (cr3=0x%lx)\n",
                       apic, mm_domain_name(d), role, cr3);
 
@@ -358,6 +371,20 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
     if (ipc_on) {
         for (u64 s = 0; s < 300000000ull && !g_ipc_done; s++) cpu_relax();
         for (u64 s = 0; s < 100000000ull && !g_doorbell_done; s++) cpu_relax();
+    }
+
+    /* Node-L : attendre que le noyau Node-L ait fini d'imprimer tout son bringup
+     * (flag g_nodel_done) AVANT de terminer QEMU — sinon on tronque sa sortie.
+     * Borne en temps réel via le TSC (indépendant de la charge hôte) ; le vrai
+     * garde-fou anti-hang reste le timeout externe (run_phaseN.sh). */
+    if (r.nodel_present) {
+        u64 deadline = rdtsc() + 30000000000ull;     /* ~10-30 s selon la fréquence TSC */
+        while (!g_nodel_done && rdtsc() < deadline) cpu_relax();
+        u64 hb0 = g_nodel_heartbeat;                 /* puis vérifier le heartbeat vivant */
+        u64 d2 = rdtsc() + 2000000000ull;
+        while (g_nodel_heartbeat == hb0 && rdtsc() < d2) cpu_relax();
+        r.nodel_heartbeat = g_nodel_heartbeat;
+        r.nodel_alive     = g_nodel_done && (g_nodel_heartbeat > hb0);
     }
 
     r.alive        = g_ap_alive;

@@ -22,6 +22,11 @@ struct smp_result {
     bool ipc_order_ok;  /* ordre FIFO strict respecté */
     bool ipc_sum_ok;    /* checksum exact (0 perte / 0 corruption) */
     bool doorbell_ok;   /* consommateur réveillé du hlt par l'IPI */
+
+    /* Node-L souverain (Phase 4) */
+    bool nodel_present;    /* un cœur exécute le noyau Node-L */
+    bool nodel_alive;      /* heartbeat de Node-L observé en progression par le BSP */
+    u64  nodel_heartbeat;  /* dernière valeur lue */
 };
 
 struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base);

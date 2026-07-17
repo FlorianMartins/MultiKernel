@@ -22,7 +22,7 @@ static void qemu_exit(u8 code) { outb(0xF4, code); }
 static void banner(void) {
     serial_printf("\n");
     serial_printf("================================================\n");
-    serial_printf("  %s Coordinator  (v%s)\n", OS_NAME, OS_VERSION);
+    serial_printf("  %s OS  --  %s Coordinator  (v%s)\n", OS_NAME, KERNEL_NAME, OS_VERSION);
     serial_printf("  %s\n", OS_TAGLINE);
     serial_printf("================================================\n\n");
 }
@@ -133,8 +133,19 @@ void kmain(u64 magic, u64 mbi_addr) {
         serial_printf("\n[ipc] ASSERT delivery FIFO+lossless: SKIP (need >=1 Node-L + 1 Node-W AP)\n");
     }
 
-    bool all_ok = started_ok && iso_ok && ipc_ok;
-    serial_printf("\n[coord] Phase 3 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
+    /* Phase 4 : Node-L souverain */
+    bool nodel_ok = true;
+    if (r.nodel_present) {
+        serial_printf("\n[node-l] heartbeat observed by BSP: %lu\n", r.nodel_heartbeat);
+        serial_printf("[node-l] ASSERT node-l alive (heartbeat): %s\n",
+                      r.nodel_alive ? "PASS" : "FAIL");
+        nodel_ok = r.nodel_alive;
+    } else {
+        serial_printf("\n[node-l] ASSERT node-l alive: SKIP (no Node-L core)\n");
+    }
+
+    bool all_ok = started_ok && iso_ok && ipc_ok && nodel_ok;
+    serial_printf("\n[coord] Phase 4 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
 
     /* Termine QEMU proprement pour les runs de test (no-op sur vrai matériel). */
     qemu_exit(all_ok ? 0x00 : 0x01);

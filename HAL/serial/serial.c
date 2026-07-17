@@ -35,6 +35,11 @@ void serial_write(const char *s) {
     while (*s) serial_putc(*s++);
 }
 
+int serial_getc_nonblock(void) {
+    if ((inb(COM1 + 5) & 0x01) == 0) return -1;  /* LSR bit 0 : donnée dispo ? */
+    return (int)inb(COM1);
+}
+
 static void putc_ctx(char c, void *ctx) {
     (void)ctx;
     serial_putc(c);
@@ -60,4 +65,13 @@ int serial_printf(const char *fmt, ...) {
     serial_unlock();
     va_end(ap);
     return r;
+}
+
+/* Écriture d'un buffer sous verrou (atomique vis-à-vis des autres cœurs).
+ * Utilisé par SYS_write pour que la sortie userland ne s'entrelace pas avec les
+ * printf du noyau/des autres cœurs. */
+void serial_write_locked(const char *buf, unsigned long len) {
+    serial_lock();
+    for (unsigned long i = 0; i < len; i++) serial_putc(buf[i]);
+    serial_unlock();
 }

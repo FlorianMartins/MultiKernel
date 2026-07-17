@@ -16,7 +16,8 @@ OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' brand
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
             -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm -ICOORDINATOR/smp \
-            -IIPC/proto -IIPC/ring -IIPC/doorbell
+            -IIPC/proto -IIPC/ring -IIPC/doorbell \
+            -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -41,9 +42,17 @@ C_SRC := \
     COORDINATOR/smp/tramp_blob.c \
     IPC/ring/ring.c \
     IPC/doorbell/doorbell.c \
+    NODE-L/mm/nodel_mm.c \
+    NODE-L/sched/sched.c \
+    NODE-L/syscall/syscall_dispatch.c \
+    NODE-L/kernel/gdt.c \
+    NODE-L/kernel/nodel_idt.c \
+    NODE-L/kernel/nodel.c \
+    NODE-L/userland/user_blob.c \
+    LOADERS/elf/elf.c \
     COORDINATOR/core/main.c
 
-ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm
+ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm NODE-L/kernel/entry.asm
 
 # Trampoline AP : blob binaire à plat (org 0x8000), incorporé par tramp_blob.c.
 TRAMP_BIN := $(BUILD)/trampoline.bin
@@ -75,6 +84,21 @@ $(TRAMP_BIN): COORDINATOR/smp/trampoline.asm
 # tramp_blob.c fait un .incbin de build/trampoline.bin -> dépendance explicite
 $(BUILD)/COORDINATOR/smp/tramp_blob.o: $(TRAMP_BIN)
 
+# --- userland Node-L : ELF64 statique freestanding, lié dans la fenêtre user ---
+USER_ELF := $(BUILD)/nodel_user.elf
+UCFLAGS  := -ffreestanding -nostdlib -fno-pic -fno-pie -mno-red-zone \
+            -mgeneral-regs-only -fno-stack-protector -std=gnu11 -O2 -Wall -Wextra \
+            -fno-asynchronous-unwind-tables -INODE-L/syscall
+
+$(USER_ELF): NODE-L/userland/init.c NODE-L/userland/user.ld
+	@mkdir -p $(dir $@)
+	$(CC) $(UCFLAGS) -c NODE-L/userland/init.c -o $(BUILD)/nodel_user_init.o
+	$(LD) -n -T NODE-L/userland/user.ld -o $@ $(BUILD)/nodel_user_init.o
+	@echo "==> built userland $@"
+
+# user_blob.c fait un .incbin de build/nodel_user.elf -> dépendance explicite
+$(BUILD)/NODE-L/userland/user_blob.o: $(USER_ELF)
+
 $(KERNEL): $(OBJ) TOOLS/image/linker.ld
 	@mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
@@ -97,8 +121,8 @@ run: $(ISO)
 run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
-# Validation automatisée (unitaire hôte + intégration QEMU Phase 3).
-test: test-unit test-phase3
+# Validation automatisée (CI archi + unitaire hôte + intégration QEMU Phase 4).
+test: ci test-unit test-phase4
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
@@ -108,6 +132,13 @@ test-phase2: $(ISO)
 
 test-phase3: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase3.sh
+
+test-phase4: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase4.sh
+
+# CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
+ci:
+	@bash TOOLS/ci/check_deps.sh
 
 # Matrice de tests poussés (cœurs × mémoire + stress).
 test-matrix: $(ISO)

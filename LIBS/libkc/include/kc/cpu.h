@@ -24,6 +24,12 @@ static inline u64 read_cr2(void) {
 
 static inline void cpu_relax(void) { __asm__ volatile("pause"); }
 
+static inline u64 rdtsc(void) {
+    u32 lo, hi;
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((u64)hi << 32) | lo;
+}
+
 static inline void hlt_forever(void) {
     for (;;) __asm__ volatile("cli; hlt");
 }
