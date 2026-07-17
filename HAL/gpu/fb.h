@@ -23,6 +23,11 @@ void fb_init(const struct mb2_tag_framebuffer *tag);
 bool fb_ready(void);
 const struct fb_info *fb_get(void);
 
+/* Double buffering : dessine dans un back buffer RAM puis copie à l'écran d'un bloc.
+ * Élimine scintillement/déchirure. Nécessite width*height <= FB_BACKBUF_MAX. */
+bool fb_enable_backbuffer(void);
+void fb_present(void);
+
 void fb_clear(u32 color);
 void fb_put_pixel(u32 x, u32 y, u32 color);
 void fb_fill_rect(u32 x, u32 y, u32 w, u32 h, u32 color);

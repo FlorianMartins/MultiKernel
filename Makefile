@@ -24,7 +24,7 @@ INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acp
 # Flags de fault-injection (tests Phase 6). Vides en build nominal.
 NODEW_FAULT_ONCE ?=
 NODEL_WX_TEST ?=
-HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TEST),-DNODEL_WX_TEST,)
+HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TEST),-DNODEL_WX_TEST,) $(if $(GFX_DEMO),-DGFX_DEMO,)
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -48,8 +48,10 @@ C_SRC := \
     HAL/iommu/iommu.c \
     HAL/apic/ioapic.c \
     HAL/input/ps2.c \
+    HAL/input/ps2mouse.c \
     HAL/gpu/fb.c \
     HAL/gpu/splash.c \
+    HAL/gpu/gfxdemo.c \
     BOOT/stage2/multiboot2.c \
     COORDINATOR/topology/topology.c \
     COORDINATOR/monitor/monitor.c \
@@ -186,6 +188,10 @@ test-phase8: $(ISO)
 
 test-phase9: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase9_fb.sh
+
+# Souris PS/2 + double buffering (rebuild GFX_DEMO=1 en interne, restaure le nominal).
+test-phase10:
+	@SMP=$(SMP) MEM=$(MEM) bash TESTS/qemu/run_phase10_mouse.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:

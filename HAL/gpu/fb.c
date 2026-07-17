@@ -8,6 +8,27 @@
 
 static struct fb_info g_fb;
 
+/* Back buffer pour le double buffering (dimensionné pour 1024x768 max). */
+#define FB_BACKBUF_MAX (1024u * 768u)
+static u32  g_backbuf[FB_BACKBUF_MAX];
+static bool g_use_backbuf;
+
+bool fb_enable_backbuffer(void) {
+    if (!g_fb.present) return false;
+    if ((u64)g_fb.width * g_fb.height > FB_BACKBUF_MAX) return false;
+    g_use_backbuf = true;
+    return true;
+}
+
+void fb_present(void) {
+    if (!g_fb.present || !g_use_backbuf) return;
+    for (u32 y = 0; y < g_fb.height; y++) {
+        u32 *dst = (u32 *)(uintptr_t)(g_fb.addr + (u64)y * g_fb.pitch);
+        const u32 *src = &g_backbuf[(u64)y * g_fb.width];
+        for (u32 x = 0; x < g_fb.width; x++) dst[x] = src[x];
+    }
+}
+
 u32 fb_rgb(u8 r, u8 g, u8 b) {
     if (!g_fb.present) return 0;
     return ((u32)r << g_fb.red_pos) | ((u32)g << g_fb.green_pos) | ((u32)b << g_fb.blue_pos);
@@ -37,6 +58,7 @@ bool fb_ready(void) { return g_fb.present; }
 const struct fb_info *fb_get(void) { return &g_fb; }
 
 static inline u32 *pixel_at(u32 x, u32 y) {
+    if (g_use_backbuf) return &g_backbuf[(u64)y * g_fb.width + x];
     return (u32 *)(uintptr_t)(g_fb.addr + (u64)y * g_fb.pitch + (u64)x * 4);
 }
 

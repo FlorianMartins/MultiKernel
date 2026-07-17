@@ -18,6 +18,7 @@
 #include "bench.h"
 #include "fb.h"
 #include "splash.h"
+#include "gfxdemo.h"
 #include "branding.h"
 
 /* Sortie propre de QEMU (device isa-debug-exit) : écrire sur 0xF4 termine QEMU.
@@ -190,6 +191,11 @@ void kmain(u64 magic, u64 mbi_addr) {
 
     bool all_ok = started_ok && iso_ok && ipc_ok && nodel_ok && nodew_ok;
     serial_printf("\n[coord] Phase 6 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
+
+#ifdef GFX_DEMO
+    /* Phase 10 : démo souris + double buffering (BSP). Gated -> boot nominal inchangé. */
+    gfx_demo_run(madt);
+#endif
 
     /* Termine QEMU proprement pour les runs de test (no-op sur vrai matériel). */
     qemu_exit(all_ok ? 0x00 : 0x01);

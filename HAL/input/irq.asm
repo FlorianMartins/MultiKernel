@@ -3,7 +3,9 @@
 BITS 64
 
 extern kbd_handle
+extern mouse_handle
 global isr_keyboard
+global isr_mouse
 global isr_timer_ignore
 global isr_spurious
 
@@ -40,6 +42,14 @@ isr_keyboard:
     PUSH_VOL
     cld
     call kbd_handle
+    POP_VOL
+    iretq
+
+; --- IRQ souris (vecteur 0x22) : mouse_handle() fait l'EOI lui-même ---
+isr_mouse:
+    PUSH_VOL
+    cld
+    call mouse_handle
     POP_VOL
     iretq
 
