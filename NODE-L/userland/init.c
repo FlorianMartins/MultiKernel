@@ -76,19 +76,21 @@ void _start(void) {
      * que rien n'arrive (budget d'attente fini). Termine sur 'exit', EOF, ou N lignes
      * -> jamais de hang, même sans entrée (exécution automatisée). */
     char line[128];
-    int max_lines = 16;
+    int max_lines = 48;
     int running = 1;
 
     while (running && max_lines-- > 0) {
         puts_("prism:/ $ ");
 
         unsigned long len = 0;
-        int idle = 0, got_input = 0;
+        long idle = 0; int got_input = 0;
         while (len < sizeof(line) - 1) {
             char ch;
             long r = sys_read(&ch, 1);
             if (r <= 0) {
-                if (++idle > 40000) break;      /* plus rien à lire : on arrête la ligne */
+                /* Fenêtre d'attente élargie (banc de test web : laisse le temps de
+                 * taper). Les tests automatisés envoient 'exit' -> sortie immédiate. */
+                if (++idle > 600000) break;
                 sys_yield();
                 continue;
             }

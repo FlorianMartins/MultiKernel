@@ -3,3 +3,5 @@
 *.bin
 *.iso
 *.elf
+/WEB/nexus-os.iso
+/WEB/v86/

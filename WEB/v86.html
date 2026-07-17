@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prism OS — v86 (navigateur)</title>
+<style>
+  body { margin:0; background:#0b0e14; color:#c8d3f5;
+    font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .wrap { max-width:1000px; margin:0 auto; padding:16px; }
+  h1 { font-size:18px; } .p{color:#5ccfe6} .a{color:#a3d4ff}
+  #screen { background:#000; border:1px solid #232a3b; border-radius:10px; overflow:hidden; }
+  #screen div { white-space:pre; font:14px/1.2 monospace; }
+  .note { color:#7784a5; font-size:12px; }
+  button { background:#131722; color:#c8d3f5; border:1px solid #232a3b; padding:8px 16px;
+    border-radius:8px; cursor:pointer; font:inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="p">Prism</span> OS · <span class="a">Axis</span> kernel — émulé dans le navigateur (v86)</h1>
+  <p class="note">Nécessite les assets v86 dans <code>WEB/v86/</code> et l'ISO copiée en
+     <code>WEB/nexus-os.iso</code> (cf. README, option B). Émulateur : timing non représentatif.</p>
+  <p><button id="start">▶ Booter Prism</button></p>
+  <div id="screen">
+    <div style="white-space: pre; font: 14px/1.2 monospace"></div>
+    <canvas style="display:none"></canvas>
+  </div>
+  <p class="note">Sortie série ci-dessus. Clique dans l'écran pour envoyer le clavier.</p>
+</div>
+
+<script src="v86/libv86.js"></script>
+<script>
+document.getElementById('start').onclick = function () {
+  this.disabled = true;
+  // eslint-disable-next-line no-undef
+  new V86({
+    wasm_path: "v86/v86.wasm",
+    bios:       { url: "v86/seabios.bin" },
+    vga_bios:   { url: "v86/vgabios.bin" },
+    cdrom:      { url: "nexus-os.iso" },
+    screen_container: document.getElementById("screen"),
+    autostart: true,
+    memory_size: 512 * 1024 * 1024,
+  });
+};
+</script>
+</body>
+</html>
