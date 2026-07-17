@@ -38,10 +38,10 @@ sans la couche hyperviseur.
 
 | # | Contrôle | Pourquoi | Statut |
 |---|----------|----------|--------|
-| C1 | **IOMMU (VT-d/AMD-Vi)** : DMA d'un périphérique borné à la RAM de son domaine | Sans elle, le DMA contourne le partitionnement CPU → isolation nulle | ⏳ Phase 6 (non prouvable sous QEMU, test = matériel réel) |
+| C1 | **IOMMU (VT-d/AMD-Vi)** : DMA d'un périphérique borné à la RAM de son domaine | Sans elle, le DMA contourne le partitionnement CPU → isolation nulle | 🟡 Phase 6 : **détection** DMAR (`HAL/iommu`, DRHD/intr-remap parsés+journalisés). Programmation des tables + preuve DMA = **test matériel** (QEMU intel-iommu partiel) |
 | C2 | **IPC borné/validé** : tout octet venant de l'autre nœud est hostile par défaut | L'IPC est la NOUVELLE surface d'attaque ; un pointeur cross-domaine déréférencé annule tout | 🟢 Phase 3+5 : `len ≤ PAYLOAD_MAX`, back-end I/O borne `lba/len` (fail-closed), on ne transporte que des octets copiés (jamais de pointeur cross-domaine) |
 | C3 | **Boot vérifié / chaîne de confiance** (Secure/Measured Boot, pas d'exécution en place non signée) | GRUB/firmware/SMM restent un maillon | ⏳ à cadrer (Phase 6) |
-| C4 | **W^X (Write XOR eXecute)** : pages code RX (NX sur data), pas de RWX | Empêche l'injection/exécution de code | 🔴 **dette actuelle** : le mapping identité 2 MiB est RWX (warning ld). À corriger (NX + attributs par section) |
+| C4 | **W^X (Write XOR eXecute)** : pages code RX (NX sur data), pas de RWX | Empêche l'injection/exécution de code | 🟡 Phase 6 : `EFER.NXE` actif ; **fenêtre user des nœuds NX sauf la page de code** (exec-depuis-pile → #PF, `run_phase6_wx.sh`). Reste : W^X **complet du TCB kernel** (remapping fin 4 KiB de la basse mémoire) |
 | C5 | **Confinement de Node-W** (compat NT = grosse surface = talon d'Achille) | Faire tourner du PE/Windows réintroduit du risque ; l'archi le confine SI C1+C2 tiennent | 🟢 Phase 5 **démontré** : un `.exe` Node-W qui touche la RAM Node-L prend un #PF (`run_phase5_crash.sh`) → Node-L survit. Confinement CPU/pagination prouvé (reste C1 IOMMU pour le DMA) |
 
 ## 4. Axes ajoutés (angles à ne pas oublier)

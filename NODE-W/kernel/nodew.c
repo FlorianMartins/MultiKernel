@@ -18,6 +18,7 @@ extern u8 nodew_pe_end[];
 volatile struct nodew_result g_nodew;
 volatile u64 g_nodew_heartbeat;
 volatile u32 g_nodew_done;
+volatile u32 g_nodew_boot_count;   /* persiste à travers un redémarrage à chaud */
 volatile u32 g_nodew_terminated;
 volatile u32 g_nodew_exit_code;
 volatile u32 g_nodew_io_ok;
@@ -26,7 +27,8 @@ u64          g_nodew_return_ctx[8];
 static u8 w_kstack[16384] __attribute__((aligned(16)));
 
 void node_w_main(void) {
-    serial_printf("\n[node-w] === Node-W (NT-compat) kernel boot ===\n");
+    u32 boot = __atomic_add_fetch(&g_nodew_boot_count, 1, __ATOMIC_SEQ_CST);
+    serial_printf("\n[node-w] === Node-W (NT-compat) kernel boot (attempt #%u) ===\n", boot);
 
     u64 cr3 = nodew_mm_activate();
     g_nodew.cr3_switched = true;
@@ -35,6 +37,18 @@ void node_w_main(void) {
     nodew_gdt_init((u64)(uintptr_t)&w_kstack[sizeof(w_kstack)]);
     nodew_idt_init();
     serial_printf("[node-w] GDT/TSS + IDT ready (Nt syscalls via int 0x2e)\n");
+
+#ifdef NODEW_FAULT_ONCE
+    /* Démo fault-containment (Phase 6) : faute déterministe au 1er boot, OK au 2e.
+     * Écrit dans la RAM Node-L (non mappée ici) -> #PF -> cœur figé -> le Coordinator
+     * détecte l'absence de heartbeat et redémarre Node-W à chaud. */
+    if (boot == 1) {
+        serial_printf("[node-w] (fault-once) simulating fault: writing Node-L RAM 0x4000000\n");
+        *(volatile u32 *)0x4000000ull = 0xDEAD;   /* -> #PF, ne revient pas */
+    } else {
+        serial_printf("[node-w] recovered on restart attempt #%u, running nominally\n", boot);
+    }
+#endif
 
     u64 img_sz = (u64)(nodew_pe_end - nodew_pe_start);
     serial_printf("[node-w] loading PE image (%lu bytes)\n", img_sz);

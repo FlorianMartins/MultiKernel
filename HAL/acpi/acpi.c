@@ -24,7 +24,7 @@ static const struct acpi_sdt_header *sdt_at(u64 phys) {
     return (const struct acpi_sdt_header *)(uintptr_t)phys;
 }
 
-const struct acpi_madt *acpi_find_madt(const struct acpi_rsdp *rsdp) {
+const struct acpi_sdt_header *acpi_find_table(const struct acpi_rsdp *rsdp, const char sig[4]) {
     if (!rsdp) return 0;
 
     bool use_xsdt = (rsdp->revision >= 2) && (rsdp->xsdt_addr != 0);
@@ -45,8 +45,11 @@ const struct acpi_madt *acpi_find_madt(const struct acpi_rsdp *rsdp) {
             u32 v; memcpy(&v, arr + (u64)i * 4, 4); phys = v;
         }
         const struct acpi_sdt_header *h = sdt_at(phys);
-        if (memcmp(h->sig, "APIC", 4) == 0)
-            return (const struct acpi_madt *)h;
+        if (memcmp(h->sig, sig, 4) == 0) return h;
     }
     return 0;
+}
+
+const struct acpi_madt *acpi_find_madt(const struct acpi_rsdp *rsdp) {
+    return (const struct acpi_madt *)acpi_find_table(rsdp, "APIC");
 }

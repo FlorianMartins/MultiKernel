@@ -333,6 +333,11 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
     r.nodel_present = (nodel_idx >= 0);
     r.nodew_present = (nodew_idx >= 0);
 
+    /* params de redémarrage à chaud de Node-W (Phase 6) */
+    u32 nodew_apic  = (nodew_idx >= 0) ? t->cpus[nodew_idx].apic_id : 0;
+    u64 nodew_stack = (nodew_idx >= 0)
+                    ? (u64)(uintptr_t)&ap_stacks[nodew_idx][AP_STACK_SIZE] : 0;
+
     /* Copier le trampoline. */
     u64 tramp_sz = (u64)(tramp_blob_end - tramp_blob_start);
     memcpy((void *)(uintptr_t)TRAMP_ADDR, tramp_blob_start, tramp_sz);
@@ -403,16 +408,45 @@ struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base) {
         r.nodel_alive     = g_nodel_done && (g_nodel_heartbeat > hb0);
     }
 
-    /* Node-W : idem (attendre son bringup complet avant de terminer QEMU). */
+    /* Node-W : attendre son bringup ; en cas de FAUTE (pas de done + heartbeat figé),
+     * le Coordinator contient et REDÉMARRE le nœud à chaud (Phase 6). */
     if (r.nodew_present) {
         u64 deadline = rdtsc() + 15000000000ull;
         while (!g_nodew_done && rdtsc() < deadline) cpu_relax();
+
+        if (!g_nodew_done) {
+            /* fault containment + hot restart */
+            u64 lb = g_nodel_heartbeat;   /* témoin : Node-L doit rester vivant pendant l'opération */
+            serial_printf("\n[monitor] Node-W FAULT detected (no done, heartbeat stalled at %lu)\n",
+                          g_nodew_heartbeat);
+            serial_printf("[monitor] containing + hot-restarting Node-W (apic=%u)...\n", nodew_apic);
+
+            *p_flag  = 0;
+            *p_cr3   = cr3_W;
+            *p_stk   = nodew_stack;
+            *p_entry = (u64)(uintptr_t)&ap_main;
+            __atomic_thread_fence(__ATOMIC_SEQ_CST);
+            lapic_send_init(nodew_apic);
+            udelay(200);
+            lapic_send_sipi(nodew_apic, SIPI_VECTOR);
+            wait_flag(p_flag, 20000000);
+
+            u64 d3 = rdtsc() + 15000000000ull;
+            while (!g_nodew_done && rdtsc() < d3) cpu_relax();
+            r.nodew_restarted = true;
+            r.nodel_survived_restart = (g_nodel_heartbeat > lb);   /* L a progressé pendant */
+            if (g_nodew_done)
+                serial_printf("[monitor] Node-W RECOVERED after hot restart\n");
+            else
+                serial_printf("[monitor] Node-W still down after restart\n");
+        }
+
         u64 hb0 = g_nodew_heartbeat;
         u64 d2 = rdtsc() + 2000000000ull;
         while (g_nodew_heartbeat == hb0 && rdtsc() < d2) cpu_relax();
-        r.nodew_heartbeat = g_nodew_heartbeat;
-        r.nodew_alive     = g_nodew_done && (g_nodew_heartbeat > hb0);
-        r.nodew_io_ok     = (g_nodew.io_ok != 0);
+        r.nodew_heartbeat  = g_nodew_heartbeat;
+        r.nodew_alive      = g_nodew_done && (g_nodew_heartbeat > hb0);
+        r.nodew_io_ok      = (g_nodew.io_ok != 0);
         r.nodew_terminated = (g_nodew.terminated != 0);
     }
 

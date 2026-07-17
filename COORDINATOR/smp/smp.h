@@ -34,6 +34,10 @@ struct smp_result {
     u64  nodew_heartbeat;
     bool nodew_io_ok;      /* round-trip I/O croisé vérifié */
     bool nodew_terminated; /* le PE a fait NtTerminateProcess */
+
+    /* Résilience (Phase 6) */
+    bool nodew_restarted;         /* le Coordinator a dû redémarrer Node-W à chaud */
+    bool nodel_survived_restart;  /* Node-L est resté vivant pendant le restart de W */
 };
 
 struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base);

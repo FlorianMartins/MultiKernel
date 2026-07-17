@@ -166,7 +166,8 @@ enable_paging:
 
     mov ecx, 0xC0000080             ; MSR EFER
     rdmsr
-    or  eax, 1 << 8                  ; EFER.LME
+    or  eax, 1 << 8                  ; EFER.LME (long mode)
+    or  eax, 1 << 11                 ; EFER.NXE (bit NX / W^X)
     wrmsr
 
     mov eax, cr0

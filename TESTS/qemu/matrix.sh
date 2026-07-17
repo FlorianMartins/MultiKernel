@@ -20,8 +20,8 @@ pass=0; fail=0; failed_cfgs=""
 run() { # smp mem tag
     local smp="$1" mem="$2" tag="$3" out
     out="$(QUIET=1 TIMEOUT=60 SMP="$smp" MEM="$mem" ISO="$ISO" \
-           bash TESTS/qemu/run_phase5.sh 2>&1)"
-    if echo "$out" | grep -q "PHASE 5 OK"; then
+           bash TESTS/qemu/run_phase6.sh 2>&1)"
+    if echo "$out" | grep -q "PHASE 6 OK"; then
         pass=$((pass+1)); printf "  \033[32mOK\033[0m   %s\n" "$tag"
     else
         fail=$((fail+1)); failed_cfgs="$failed_cfgs [$tag]"
@@ -30,7 +30,7 @@ run() { # smp mem tag
     fi
 }
 
-echo "=== NEXUS-OS matrice de tests (Phases 1-5) ==="
+echo "=== NEXUS-OS matrice de tests (Phases 1-6) ==="
 echo "--- balayage cœurs × mémoire (x$REPEAT) ---"
 for smp in $SMPS; do
     for mem in $MEMS; do

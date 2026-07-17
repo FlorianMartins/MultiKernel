@@ -65,5 +65,8 @@ struct acpi_madt_x2apic {
 /* Valide un RSDP brut (signature + checksums). Renvoie NULL si invalide. */
 const struct acpi_rsdp *acpi_validate_rsdp(const void *rsdp);
 
+/* Localise une table ACPI par signature 4 caractères (ex "APIC", "DMAR"). NULL si absente. */
+const struct acpi_sdt_header *acpi_find_table(const struct acpi_rsdp *rsdp, const char sig[4]);
+
 /* Localise la MADT via XSDT (préféré) ou RSDT. Renvoie NULL si absente. */
 const struct acpi_madt *acpi_find_madt(const struct acpi_rsdp *rsdp);

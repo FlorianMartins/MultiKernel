@@ -13,6 +13,8 @@
 #include "acpi.h"
 #include "topology.h"
 #include "smp.h"
+#include "iommu.h"
+#include "monitor.h"
 #include "branding.h"
 
 /* Sortie propre de QEMU (device isa-debug-exit) : écrire sur 0xF4 termine QEMU.
@@ -105,7 +107,12 @@ void kmain(u64 magic, u64 mbi_addr) {
 
     serial_printf("\n[coord] Phase 1 complete.\n");
 
-    /* ---- Phases 2 & 3 : réveil des AP, isolation, IPC ---- */
+    /* ---- Phase 6 : durcissement — détection IOMMU + checklist anti-cheat ---- */
+    struct iommu_info iommu;
+    iommu_detect(rsdp, &iommu);
+    monitor_anticheat_report();
+
+    /* ---- Phases 2..6 : réveil des AP, isolation, IPC, nœuds, résilience ---- */
     struct smp_result r = smp_boot_aps(&topo, topo.local_apic_addr);
 
     bool started_ok = (r.started == r.expected);
@@ -161,8 +168,18 @@ void kmain(u64 magic, u64 mbi_addr) {
         serial_printf("\n[node-w] ASSERT node-w alive: SKIP (no Node-W core)\n");
     }
 
+    /* Phase 6 : résilience — fault-containment / hot-restart */
+    if (r.nodew_restarted) {
+        serial_printf("\n[monitor] Node-W was hot-restarted after a fault.\n");
+        serial_printf("[monitor] ASSERT Node-W recovered: %s\n", r.nodew_alive ? "PASS" : "FAIL");
+        serial_printf("[monitor] ASSERT Node-L survived Node-W restart: %s\n",
+                      r.nodel_survived_restart ? "PASS" : "FAIL");
+    } else if (r.nodew_present) {
+        serial_printf("\n[monitor] ASSERT nodes healthy (no restart needed): PASS\n");
+    }
+
     bool all_ok = started_ok && iso_ok && ipc_ok && nodel_ok && nodew_ok;
-    serial_printf("\n[coord] Phase 5 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
+    serial_printf("\n[coord] Phase 6 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
 
     /* Termine QEMU proprement pour les runs de test (no-op sur vrai matériel). */
     qemu_exit(all_ok ? 0x00 : 0x01);

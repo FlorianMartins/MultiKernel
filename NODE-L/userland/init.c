@@ -41,7 +41,22 @@ void _start(void) {
     puts_("  +--------------------------------------------+\n");
     puts_("[init] pid = ");
     put_uint((unsigned long)sys_getpid());
-    puts_("\n[init] mini-shell — commandes: help echo ps exit\n");
+    puts_("\n");
+
+#ifdef NODEL_WX_TEST
+    /* Durcissement W^X (Phase 6) : tenter d'exécuter du code depuis la pile (NX)
+     * -> doit provoquer un #PF. Prouve que la pile user n'est pas exécutable. */
+    puts_("[init] W^X test: executing from NX stack (expect #PF)...\n");
+    {
+        volatile unsigned char code[16];
+        code[0] = 0xC3;                 /* opcode 'ret' */
+        void (*fn)(void) = (void (*)(void))(void *)code;
+        fn();                           /* -> #PF (NX) : ne revient pas */
+        puts_("[init] W^X test FAILED: stack was executable!\n");
+    }
+#endif
+
+    puts_("[init] mini-shell — commandes: help echo ps exit\n");
 
     /* Mini-shell BORNÉ : lit au plus N lignes via SYS_read (non bloquant), yield tant
      * que rien n'arrive (budget d'attente fini). Termine sur 'exit', EOF, ou N lignes

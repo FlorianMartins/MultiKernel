@@ -15,10 +15,16 @@ MEM ?= 512
 OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' branding.h)
 
 INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
-            -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm -ICOORDINATOR/smp \
+            -IHAL/iommu -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm \
+            -ICOORDINATOR/smp -ICOORDINATOR/monitor \
             -IIPC/proto -IIPC/ring -IIPC/doorbell -IIPC/channels \
             -INODE-L/kernel -INODE-L/mm -INODE-L/sched -INODE-L/syscall -ILOADERS/elf \
             -INODE-W/kernel -INODE-W/executive -ILOADERS/pe
+
+# Flags de fault-injection (tests Phase 6). Vides en build nominal.
+NODEW_FAULT_ONCE ?=
+NODEL_WX_TEST ?=
+HARDEN_DEFS := $(if $(NODEW_FAULT_ONCE),-DNODEW_FAULT_ONCE,) $(if $(NODEL_WX_TEST),-DNODEL_WX_TEST,)
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -26,7 +32,7 @@ CFLAGS := -ffreestanding -nostdlib -fno-stack-protector -fno-pic -fno-pie \
           -mno-red-zone -mgeneral-regs-only -mcmodel=small \
           -std=gnu11 -O2 -Wall -Wextra \
           -fno-builtin -fno-tree-loop-distribute-patterns \
-          -fno-asynchronous-unwind-tables $(INCLUDES)
+          -fno-asynchronous-unwind-tables $(HARDEN_DEFS) $(INCLUDES)
 
 LDFLAGS  := -n -z max-page-size=0x1000 -T TOOLS/image/linker.ld
 ASMFLAGS := -f elf64
@@ -36,8 +42,10 @@ C_SRC := \
     LIBS/libkc/printf.c \
     HAL/serial/serial.c \
     HAL/acpi/acpi.c \
+    HAL/iommu/iommu.c \
     BOOT/stage2/multiboot2.c \
     COORDINATOR/topology/topology.c \
+    COORDINATOR/monitor/monitor.c \
     COORDINATOR/mm/mm.c \
     COORDINATOR/smp/smp.c \
     COORDINATOR/smp/tramp_blob.c \
@@ -98,7 +106,7 @@ $(BUILD)/COORDINATOR/smp/tramp_blob.o: $(TRAMP_BIN)
 USER_ELF := $(BUILD)/nodel_user.elf
 UCFLAGS  := -ffreestanding -nostdlib -fno-pic -fno-pie -mno-red-zone \
             -mgeneral-regs-only -fno-stack-protector -std=gnu11 -O2 -Wall -Wextra \
-            -fno-asynchronous-unwind-tables -INODE-L/syscall
+            -fno-asynchronous-unwind-tables $(HARDEN_DEFS) -INODE-L/syscall
 
 $(USER_ELF): NODE-L/userland/init.c NODE-L/userland/user.ld
 	@mkdir -p $(dir $@)
@@ -145,7 +153,7 @@ run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
 # Validation automatisée (CI archi + unitaire hôte + intégration QEMU Phase 4).
-test: ci test-unit test-phase5
+test: ci test-unit test-phase6
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
@@ -161,6 +169,9 @@ test-phase4: $(ISO)
 
 test-phase5: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase5.sh
+
+test-phase6: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase6.sh
 
 # CI d'architecture : aucune dépendance croisée NODE-L <-> NODE-W.
 ci:
