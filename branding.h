@@ -9,4 +9,4 @@
 
 #define OS_NAME     "NEXUS-OS"
 #define OS_TAGLINE  "Asymmetric Multikernel / Microkernel Coordinator"
-#define OS_VERSION  "0.2.0-phase2"
+#define OS_VERSION  "0.3.0-phase3"

@@ -14,8 +14,9 @@ MEM ?= 512
 # Nom de l'OS : source unique = branding.h (extrait pour le titre GRUB / logs build).
 OS_NAME := $(shell sed -n 's/^\#define OS_NAME[[:space:]]*"\(.*\)".*/\1/p' branding.h)
 
-INCLUDES := -I. -ILIBS/libkc/include -IHAL/serial -IHAL/acpi -IBOOT/stage2 \
-            -ICOORDINATOR/topology -ICOORDINATOR/mm -ICOORDINATOR/smp
+INCLUDES := -I. -ILIBS/libkc/include -ILIBS/librt/include -IHAL/serial -IHAL/acpi \
+            -IBOOT/stage2 -ICOORDINATOR/topology -ICOORDINATOR/mm -ICOORDINATOR/smp \
+            -IIPC/proto -IIPC/ring -IIPC/doorbell
 
 # Freestanding, sans pile rouge, sans SSE/MMX/x87 (CR4.OSFXSR non configuré),
 # modèle mémoire "small" (noyau en < 2 GiB), non-PIE.
@@ -38,6 +39,8 @@ C_SRC := \
     COORDINATOR/mm/mm.c \
     COORDINATOR/smp/smp.c \
     COORDINATOR/smp/tramp_blob.c \
+    IPC/ring/ring.c \
+    IPC/doorbell/doorbell.c \
     COORDINATOR/core/main.c
 
 ASM_SRC := BOOT/stage2/boot.asm COORDINATOR/smp/isr.asm
@@ -94,14 +97,27 @@ run: $(ISO)
 run-gui: $(ISO)
 	qemu-system-x86_64 -cdrom $(ISO) $(QEMU_FLAGS)
 
-# Validation automatisée.
-test: test-phase2
+# Validation automatisée (unitaire hôte + intégration QEMU Phase 3).
+test: test-unit test-phase3
 
 test-phase1: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase1.sh
 
 test-phase2: $(ISO)
 	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase2.sh
+
+test-phase3: $(ISO)
+	@SMP=$(SMP) MEM=$(MEM) ISO=$(ISO) bash TESTS/qemu/run_phase3.sh
+
+# Matrice de tests poussés (cœurs × mémoire + stress).
+test-matrix: $(ISO)
+	@bash TESTS/qemu/matrix.sh
+
+# Test unitaire hôte du ring SPSC (pthreads, 10^7 messages).
+test-unit:
+	@$(CC) -O2 -pthread -ILIBS/libkc/include -IIPC/proto -IIPC/ring \
+	    TESTS/unit/test_ring.c IPC/ring/ring.c -o $(BUILD)/test_ring
+	@$(BUILD)/test_ring
 
 clean:
 	rm -rf $(BUILD)

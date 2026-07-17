@@ -7,8 +7,13 @@
 >
 > Objectif directeur : **accès matériel direct (bare-metal) pour chaque nœud**, condition nécessaire aux logiciels de sécurité et anti-cheat qui refusent de tourner sous virtualisation classique.
 
-**Statut du document :** `DRAFT v0.1` — Session 1, exploration & planification. **Aucun code n'est produit à ce stade.**
+**Statut du document :** `DRAFT v0.1` — Session 1, exploration & planification.
 **Date :** 2026-07-17
+
+> 🔒 **Sécurité** : la thèse de sécurité (isolation par confinement, TCB minimal) et le
+> modèle de menace directeur sont dans [`DOCS/security-model.md`](DOCS/security-model.md)
+> — **à relire au début de chaque phase**. Objectif produit : OS léger/performant pour
+> **gaming + cybersécurité**, moderne, avec outils Linux optionnels (façon Kali).
 
 ---
 

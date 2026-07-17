@@ -105,24 +105,37 @@ void kmain(u64 magic, u64 mbi_addr) {
 
     serial_printf("\n[coord] Phase 1 complete.\n");
 
-    /* ---- Phase 2 : réveil des AP + preuve d'isolation ---- */
+    /* ---- Phases 2 & 3 : réveil des AP, isolation, IPC ---- */
     struct smp_result r = smp_boot_aps(&topo, topo.local_apic_addr);
 
     bool started_ok = (r.started == r.expected);
-    bool iso_ok     = (r.iso_pass == r.expected) && (r.iso_fail == 0);
+    bool iso_ok     = (r.iso_pass == r.iso_expected) && (r.iso_fail == 0);
 
     serial_printf("\n[smp] APs: expected=%u started=%u alive=%u\n",
                   r.expected, r.started, r.alive);
-    serial_printf("[smp] ASSERT started == expected: %s\n",
-                  started_ok ? "PASS" : "FAIL");
-    serial_printf("[smp] isolation: pass=%u fail=%u (expected pass=%u)\n",
-                  r.iso_pass, r.iso_fail, r.expected);
+    serial_printf("[smp] ASSERT started == expected: %s\n", started_ok ? "PASS" : "FAIL");
+    serial_printf("[smp] isolation: pass=%u fail=%u (expected=%u)\n",
+                  r.iso_pass, r.iso_fail, r.iso_expected);
     serial_printf("[smp] ASSERT isolation enforced: %s\n",
-                  iso_ok ? "PASS" : "FAIL");
+                  iso_ok ? "PASS" : (r.iso_expected == 0 ? "SKIP" : "FAIL"));
 
-    serial_printf("\n[coord] Phase 2 %s. BSP halting.\n",
-                  (started_ok && iso_ok) ? "complete" : "FAILED");
+    /* Phase 3 : IPC */
+    bool ipc_ok = true;
+    if (r.ipc_enabled) {
+        bool delivery_ok = r.ipc_order_ok && r.ipc_sum_ok && (r.ipc_got == r.ipc_expected);
+        serial_printf("\n[ipc] delivery: got=%u/%u order=%s checksum=%s\n",
+                      r.ipc_got, r.ipc_expected,
+                      r.ipc_order_ok ? "OK" : "BAD", r.ipc_sum_ok ? "OK" : "BAD");
+        serial_printf("[ipc] ASSERT delivery FIFO+lossless: %s\n", delivery_ok ? "PASS" : "FAIL");
+        serial_printf("[ipc] ASSERT doorbell wake: %s\n", r.doorbell_ok ? "PASS" : "FAIL");
+        ipc_ok = delivery_ok && r.doorbell_ok;
+    } else {
+        serial_printf("\n[ipc] ASSERT delivery FIFO+lossless: SKIP (need >=1 Node-L + 1 Node-W AP)\n");
+    }
+
+    bool all_ok = started_ok && iso_ok && ipc_ok;
+    serial_printf("\n[coord] Phase 3 %s. BSP halting.\n", all_ok ? "complete" : "FAILED");
 
     /* Termine QEMU proprement pour les runs de test (no-op sur vrai matériel). */
-    qemu_exit((started_ok && iso_ok) ? 0x00 : 0x01);
+    qemu_exit(all_ok ? 0x00 : 0x01);
 }

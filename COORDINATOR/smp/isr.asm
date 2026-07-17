@@ -3,10 +3,22 @@
 BITS 64
 
 extern exc_handler
+extern g_doorbell_recv
 global load_idt
 global isr_table
+global isr_doorbell
 
 section .text
+
+; Handler du doorbell (IPI fixed vecteur 0x41) : pose un flag, EOI, iretq.
+; Écrit entièrement en asm -> pas de contrainte d'alignement ABI d'appel C.
+isr_doorbell:
+    push rax
+    mov byte [rel g_doorbell_recv], 1
+    mov eax, 0xFEE000B0          ; LAPIC EOI (zero-extend -> rax)
+    mov dword [rax], 0
+    pop rax
+    iretq
 
 ; Cadre uniforme sur la pile : [rsp] = vecteur, [rsp+8] = code d'erreur.
 %macro ISR_NOERR 1

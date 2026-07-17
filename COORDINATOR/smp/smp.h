@@ -1,15 +1,27 @@
-/* NEXUS-OS COORDINATOR/smp — réveil des AP & preuve d'isolation (Phase 2). */
+/* NEXUS-OS COORDINATOR/smp — réveil des AP, isolation (Phase 2) & IPC (Phase 3). */
 #pragma once
 
 #include "kc/types.h"
 #include "topology.h"
 
 struct smp_result {
-    u32 expected;    /* AP à réveiller (cœurs non-COORD, activés, hors BSP) */
-    u32 started;     /* AP ayant consommé le trampoline */
-    u32 alive;       /* AP ayant prouvé l'accès à leur propre fenêtre */
-    u32 iso_pass;    /* #PF croisés capturés (isolation prouvée) */
-    u32 iso_fail;    /* accès croisés ayant réussi (isolation violée) */
+    /* démarrage */
+    u32  expected;      /* AP à réveiller (cœurs non-COORD, activés, hors BSP) */
+    u32  started;       /* AP ayant consommé le trampoline */
+    u32  alive;         /* AP ayant signalé leur vivacité */
+
+    /* isolation (Phase 2) */
+    u32  iso_expected;  /* AP en rôle "isolation" */
+    u32  iso_pass;      /* #PF croisés capturés */
+    u32  iso_fail;      /* accès croisés ayant réussi (violation) */
+
+    /* IPC (Phase 3) */
+    bool ipc_enabled;   /* un producteur ET un consommateur ont été assignés */
+    u32  ipc_expected;  /* messages attendus */
+    u32  ipc_got;       /* messages reçus par le consommateur */
+    bool ipc_order_ok;  /* ordre FIFO strict respecté */
+    bool ipc_sum_ok;    /* checksum exact (0 perte / 0 corruption) */
+    bool doorbell_ok;   /* consommateur réveillé du hlt par l'IPI */
 };
 
 struct smp_result smp_boot_aps(const struct topology *t, u64 lapic_base);
