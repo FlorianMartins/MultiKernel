@@ -122,7 +122,7 @@ _start:
 ; --- données (dans .text, référencées en RIP-relative) ---
 banner:
     db 10, "  ============================================", 10
-    db "   Prism Node-W  --  PE32+ native (ring 3, NT)", 10
+    db "   MultiKernel Node-W  --  PE32+ native (ring 3, NT)", 10
     db "  ============================================", 10
     db "[pe] NtDisplayString OK", 10
 banner_len equ $ - banner

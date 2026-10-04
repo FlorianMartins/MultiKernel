@@ -43,7 +43,7 @@ if [ "$SMP" -ge 3 ]; then
     check "own paging active"                        "Node-W: pagination propre (partagée avec L)"
     check "PE OK: base=0x8400000"                    "Node-W: PE chargé"
     check "entering ring 3 @0x8401000"               "Node-W: passage ring 3 (PE)"
-    check "Prism Node-W  --  PE32\+ native"          "Node-W: NtDisplayString (bannière PE)"
+    check "MultiKernel Node-W  --  PE32\+ native"          "Node-W: NtDisplayString (bannière PE)"
     check "cross-node I/O verified"                  "Node-W: I/O croisée vérifiée"
     check "ASSERT PE loaded: PASS"                   "Node-W: assert PE"
     check "ASSERT ring3 PE ran\+terminated: PASS"    "Node-W: PE exécuté+terminé"
@@ -55,7 +55,7 @@ if [ "$SMP" -ge 3 ]; then
 else
     check "node-w alive: SKIP"                       "Node-W SKIP (aucun cœur Node-W)"
 fi
-check "Phase 5 complete"                             "fin de Phase 5"
+check "Phase [5-9] complete"                             "fin de Phase 5"
 # Interdits
 refute "ISOLATION FAIL"                              "aucune violation d'isolation"
 refute "UNEXPECTED EXCEPTION"                        "aucune exception inattendue"

@@ -43,7 +43,7 @@ if [ "$SMP" -ge 2 ]; then
     check "task A tick 0"                            "Node-L: task A ordonnancée"
     check "task B tick 0"                            "Node-L: task B ordonnancée"
     check "entering ring 3"                          "Node-L: passage ring 3"
-    check "Prism Node-L userland"                 "Node-L: userland exécuté (ring 3)"
+    check "MultiKernel Node-L userland"                 "Node-L: userland exécuté (ring 3)"
     check "ASSERT ring3 userland: PASS"              "Node-L: userland a fait SYS_exit"
     check "ASSERT user exit code 0: PASS"            "Node-L: exit code 0"
     check "ASSERT node-l alive \(heartbeat\): PASS"  "Node-L: heartbeat vu par le BSP"

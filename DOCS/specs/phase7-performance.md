@@ -1,6 +1,6 @@
 # SPEC — Phase 7 : Performance & optimisation
 
-> Statut : `IN PROGRESS`. Objectif : faire de Prism/Axis un noyau/OS le plus rapide et
+> Statut : `IN PROGRESS`. Objectif : faire de MultiKernel/Axis un noyau/OS le plus rapide et
 > efficace possible — **par la mesure**, pas par affirmation. On instrumente, on établit
 > une baseline en cycles TSC (métrique indépendante de la fréquence), on optimise les
 > chemins chauds, on re-mesure, on prouve les gains. Les 6 phases restent vertes.

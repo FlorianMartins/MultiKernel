@@ -26,7 +26,7 @@ void splash_draw(const char *os_name, const char *kernel_name,
         fb_fill_rect(0, y, W, 1, c);
     }
 
-    u32 accent = fb_rgb(0x5c, 0xcf, 0xe6);    /* cyan Prism */
+    u32 accent = fb_rgb(0x5c, 0xcf, 0xe6);    /* cyan MultiKernel */
     u32 accent2 = fb_rgb(0xa3, 0xd4, 0xff);
     u32 white = fb_rgb(0xe8, 0xee, 0xff);
     u32 dim = fb_rgb(0x77, 0x84, 0xa5);
@@ -42,8 +42,8 @@ void splash_draw(const char *os_name, const char *kernel_name,
 
     /* titre */
     u32 tscale = (W >= 1024) ? 4 : 3;
-    u32 tw = 12 * FONT_W * tscale;            /* "Prism · Axis" ~ 12 chars */
-    fb_draw_string_scaled(cx - tw / 2, top + tri + 30, "Prism", accent, 0, tscale);
+    u32 tw = 12 * FONT_W * tscale;            /* "MultiKernel" = 11 chars */
+    fb_draw_string_scaled(cx - tw / 2, top + tri + 30, "MultiKernel", accent, 0, tscale);
     fb_draw_string_scaled(cx - tw / 2 + 6 * FONT_W * tscale, top + tri + 30,
                           " Axis", accent2, 0, tscale);
 

@@ -44,7 +44,7 @@ for y in range(0,Hh,4):
     for x in range(0,W,4):
         r,g,b=px[x,y]
         colors.add((r//32,g//32,b//32))
-        if b>150 and g>140 and r<120:   # cyan/bleu clair (accent Prism)
+        if b>150 and g>140 and r<120:   # cyan/bleu clair (accent MultiKernel)
             cyan+=1
 print("  cyan-ish samples:",cyan," | distinct color buckets:",len(colors))
 ok = cyan>200 and len(colors)>8

@@ -9,7 +9,7 @@
  *  KERNEL_NAME : nom du noyau Coordinator (le "super-noyau").
  * ============================================================================= */
 
-#define OS_NAME     "Prism"
+#define OS_NAME     "MultiKernel"
 #define KERNEL_NAME "Axis"
 #define OS_TAGLINE  "Asymmetric Multikernel / Microkernel Coordinator"
 #define OS_VERSION  "0.11.0-phase11"

@@ -43,7 +43,7 @@ void _start(void) {
 #endif
     puts_("\n");
     puts_("  +--------------------------------------------+\n");
-    puts_("  |  Prism Node-L userland  (ring 3, POSIX)     |\n");
+    puts_("  |  MultiKernel Node-L userland (ring 3, POSIX) |\n");
     puts_("  +--------------------------------------------+\n");
     puts_("[init] pid = ");
     put_uint((unsigned long)sys_getpid());

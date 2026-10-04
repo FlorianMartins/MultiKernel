@@ -224,7 +224,7 @@ bench-host:
 # Banc de test web : serveur QEMU + console série diffusée au navigateur.
 WEB_PORT ?= 8080
 web: $(ISO)
-	@echo "Prism web tester -> http://127.0.0.1:$(WEB_PORT)  (Ctrl-C pour arrêter)"
+	@echo "MultiKernel web tester -> http://127.0.0.1:$(WEB_PORT)  (Ctrl-C pour arrêter)"
 	@python3 WEB/server.py --port $(WEB_PORT) --smp $(SMP) --mem $(MEM)
 
 # Copie l'ISO dans WEB/ pour l'option v86 (100% navigateur).

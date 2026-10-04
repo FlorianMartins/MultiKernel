@@ -24,7 +24,7 @@ Fonte : `HAL/gpu/font8x16.h`, générée une fois depuis DejaVu Sans Mono
 
 ## 3. Splash (`HAL/gpu/splash`)
 
-Démo/preuve : dégradé de fond, logo « prisme » (triangle dégradé), titre « Prism Axis »,
+Démo/preuve : dégradé de fond, logo « prisme » (triangle dégradé), titre « MultiKernel Axis »,
 panneau d'infos (OS/Kernel/Version/CPUs/Model). Dessiné par le Coordinator au boot.
 À terme, la GUI vivra en **userland Node-L** (le FB pourra être attribué à un domaine) ;
 ici on valide la brique matérielle.

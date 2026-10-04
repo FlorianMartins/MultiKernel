@@ -100,7 +100,7 @@ void gfx_demo_run(const struct acpi_madt *madt) {
         (void)bg_top;
 
         fb_fill_rect(0, 0, fb->width, 3, accent);
-        fb_draw_string_scaled(40, 40, "Prism GUI", accent, 0, 2);
+        fb_draw_string_scaled(40, 40, "MultiKernel GUI", accent, 0, 2);
         fb_draw_string(40, 90, "souris PS/2 + double buffering (Phase 10)", dim, 0);
 
         char sx[12], sy[12], sb[4];

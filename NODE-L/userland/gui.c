@@ -87,9 +87,9 @@ static void shell_exec(void){
     else if(starts(cmd,"echo")){ const char*a=cmd; while(*a&&*a!=' ')a++; if(*a==' ')a++; term_puts(a); term_putc('\n'); }
     else if(starts(cmd,"ps")){ term_puts("  PID  DOMAINE  CMD\n  0    COORD    axis\n  100  NODE-L   compositor\n  200  NODE-W   hello.exe\n"); }
     else if(starts(cmd,"clear")){ term_clear(); }
-    else if(starts(cmd,"uname")){ term_puts("Prism OS / Axis kernel (multikernel asymetrique x86_64)\n"); }
-    else if(starts(cmd,"ver")){ term_puts("Prism 0.11 - Axis coordinator\n"); }
-    else if(starts(cmd,"about")){ term_puts("Prism : Node-L POSIX + Node-W NT, IPC lock-free,\nW^X, hot-restart, GUI en ring 3.\n"); }
+    else if(starts(cmd,"uname")){ term_puts("MultiKernel / Axis kernel (multikernel asymetrique x86_64)\n"); }
+    else if(starts(cmd,"ver")){ term_puts("MultiKernel 0.11 - Axis coordinator\n"); }
+    else if(starts(cmd,"about")){ term_puts("MultiKernel : Node-L POSIX + Node-W NT, IPC lock-free,\nW^X, hot-restart, GUI en ring 3.\n"); }
     else { term_puts("commande inconnue: "); term_puts(cmd); term_putc('\n'); }
     cmdn=0;
     prompt();
@@ -137,7 +137,7 @@ void gui_main(void){
     logs("[gui] compositeur+terminal ("); log_uint(SW); logs("x"); log_uint(SH); logs(")\n");
 
     term_clear();
-    term_puts("Prism terminal (ring 3) - tape 'help'\n");
+    term_puts("MultiKernel terminal (ring 3) - tape 'help'\n");
     prompt();
 
     struct mouse_user m={0}; unsigned prev_btn=0;
@@ -169,7 +169,7 @@ void gui_main(void){
         /* --- rendu (double buffering) --- */
         for(unsigned y=0;y<SH;y+=2){ unsigned t=(y*36)/SH; rect(0,y,SW,2,rgb(0x0a + t/3, 0x0e + t/2, 0x1c + t)); }
         rect(0,0,SW,28,rgb(0x0d,0x11,0x1c));
-        str_(14,6,"Prism",rgb(0x5c,0xcf,0xe6)); str_(14+6*FONT_W,6,"desktop",rgb(0x77,0x84,0xa5));
+        str_(14,6,"MultiKernel",rgb(0x5c,0xcf,0xe6)); str_(14+6*FONT_W,6,"desktop",rgb(0x77,0x84,0xa5));
         str_(SW-160,6,"Node-L  ring3",rgb(0x77,0x84,0xa5));
         for(int i=0;i<NWIN;i++) draw_window(&wins[zorder[i]], i==NWIN-1);
         draw_cursor(mx,my);

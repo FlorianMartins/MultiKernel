@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""NEXUS-OS / Prism — serveur web de test.
+"""NEXUS-OS / MultiKernel — serveur web de test.
 
-Boote l'ISO Prism dans QEMU (côté serveur) et diffuse la console série vers le
+Boote l'ISO MultiKernel dans QEMU (côté serveur) et diffuse la console série vers le
 navigateur (Server-Sent Events). Permet aussi d'envoyer des frappes clavier au shell.
 Stdlib uniquement — aucune dépendance externe.
 
@@ -171,7 +171,7 @@ def main():
 
     SESSION = QemuSession(args.iso, args.smp, args.mem)
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"Prism web tester -> http://{args.host}:{args.port}  (ISO={args.iso}, smp={args.smp})")
+    print(f"MultiKernel web tester -> http://{args.host}:{args.port}  (ISO={args.iso}, smp={args.smp})")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

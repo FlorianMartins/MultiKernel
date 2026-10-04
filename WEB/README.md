@@ -1,10 +1,10 @@
-# Prism OS — banc de test web
+# MultiKernel — banc de test web
 
-Deux façons de tester Prism dans un navigateur / une VM.
+Deux façons de tester MultiKernel dans un navigateur / une VM.
 
 ## Option A — Serveur QEMU + console web (recommandé, testé)
 
-Un petit serveur Python (stdlib only) boote l'**ISO Prism dans le vrai QEMU** côté serveur
+Un petit serveur Python (stdlib only) boote l'**ISO MultiKernel dans le vrai QEMU** côté serveur
 et diffuse la console série vers le navigateur (Server-Sent Events), avec entrée clavier
 vers le shell Node-L.
 
@@ -18,7 +18,7 @@ Ouvre `http://127.0.0.1:8080`, clique **Booter** : tu vois le boot des 7 phases 
 les pastilles de phase s'allument, et tu peux taper des commandes shell (`help`, `echo …`,
 `ps`, `exit`) dans la fenêtre du bas (le shell Node-L tourne en ring 3 pendant le bringup).
 
-- Vrai QEMU, vrai Prism (pas d'émulateur approximatif).
+- Vrai QEMU, vrai MultiKernel (pas d'émulateur approximatif).
 - Aucune dépendance externe (Python 3 + QEMU suffisent).
 - Idéal pour héberger un « service web » de démo/test (derrière un reverse-proxy).
 
@@ -27,7 +27,7 @@ Endpoints : `POST /boot`, `POST /reset`, `POST /input` (`{"data":"…"}`),
 
 ## Option B — 100 % navigateur via v86 (serverless, à assets)
 
-Pour une démo **sans serveur** (Prism émulé en WASM directement dans l'onglet), on utilise
+Pour une démo **sans serveur** (MultiKernel émulé en WASM directement dans l'onglet), on utilise
 [v86](https://github.com/copy/v86). v86 et ses BIOS sont des assets externes (non inclus) :
 
 ```sh
